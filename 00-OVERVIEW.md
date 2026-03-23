@@ -1,0 +1,193 @@
+# Phase Overview — The Oxidation Loop
+
+A single iteration of the Becrabbening converts exactly one file-pair (`.cpp` + `.h`, or `.h`-only) through the following 7 phases.
+
+See [ROADMAP.md](./ROADMAP.md) for target selection strategy, and [09-CHECKLIST-TEMPLATE.md](./09-CHECKLIST-TEMPLATE.md) for the PR checklist.
+
+---
+
+## The Full Loop
+
+```
+┌─────────────────────────────────┐
+│     PICK ONE FILE-PAIR          │
+│  (leaf node from ROADMAP.md)    │
+└────────────────┬────────────────┘
+                 │
+                 ▼
+┌─────────────────────────────────┐
+│  Phase 0 — PREPARE              │
+│  Freeze target, snapshot API,   │
+│  write contract tests           │
+└────────────────┬────────────────┘
+                 │
+                 ▼
+┌─────────────────────────────────┐
+│  Phase 1 — RUST                 │
+│  Implement Rust replacement,    │
+│  add extern "C" FFI exports     │
+└────────────────┬────────────────┘
+                 │
+                 ▼
+┌─────────────────────────────────┐
+│  Phase 2 — C FFI                │
+│  Run cbindgen, generate pure-C  │
+│  header, audit and verify       │
+└────────────────┬────────────────┘
+                 │
+                 ▼
+┌─────────────────────────────────┐
+│  Phase 3 — C++ SHIM             │
+│  Build C++ wrapper with exact   │
+│  same public API as original    │
+└────────────────┬────────────────┘
+                 │
+                 ▼
+┌─────────────────────────────────┐
+│  Phase 4 — SWITCHOVER           │
+│  *** ONLY phase that edits ***  │
+│  *** existing files ***         │
+│  Gut original .h and .cpp,      │
+│  replace with single #include   │
+└────────────────┬────────────────┘
+                 │
+                 ▼
+┌─────────────────────────────────┐
+│  Phase 5 — VALIDATE             │
+│  Contract tests, mach build,    │
+│  mach test, ABI symbol check    │
+└────────────────┬────────────────┘
+                 │
+                 ▼
+┌─────────────────────────────────┐
+│  Phase 6 — MERGE                │
+│  Rebase, land PR, tag,          │
+│  defer cleanup to next PR       │
+└────────────────┬────────────────┘
+                 │
+                 ▼
+┌─────────────────────────────────┐
+│  PICK NEXT FILE-PAIR (repeat)   │
+└─────────────────────────────────┘
+```
+
+---
+
+## Phase Summary
+
+| Phase | Name | Document | Operation Type | Conflict Risk |
+|---|---|---|---|---|
+| 0 | Prepare | [01-PHASE-0-PREPARE.md](./01-PHASE-0-PREPARE.md) | Add (tests only) | Zero |
+| 1 | Rust | [02-PHASE-1-RUST.md](./02-PHASE-1-RUST.md) | Add (new files) | Zero |
+| 2 | C FFI | [03-PHASE-2-C-FFI.md](./03-PHASE-2-C-FFI.md) | Add (new files) | Zero |
+| 3 | C++ Shim | [04-PHASE-3-CPP-SHIM.md](./04-PHASE-3-CPP-SHIM.md) | Add (new files) | Zero |
+| 4 | Switchover | [05-PHASE-4-SWITCHOVER.md](./05-PHASE-4-SWITCHOVER.md) | Edit (existing) | Minimal |
+| 5 | Validate | [06-PHASE-5-VALIDATE.md](./06-PHASE-5-VALIDATE.md) | None | Zero |
+| 6 | Merge | [07-PHASE-6-MERGE.md](./07-PHASE-6-MERGE.md) | Delete (deferred) | Deferred |
+
+Phases 0–3 are purely **additive** — they create new files and never touch existing ones. This is the core of the conflict-avoidance strategy: new files cannot conflict with anything. See [08-CONFLICT-AVOIDANCE.md](./08-CONFLICT-AVOIDANCE.md) for the full rules.
+
+---
+
+## The Three-Layer Sandwich
+
+```
+                          ┌──────────────────────────────────────────┐
+  Existing callers        │  nsFoo* f = new nsFoo(42);               │
+  (unchanged C++)         │  int result = f->Bar(10);                │
+                          └──────────────────┬───────────────────────┘
+                                             │  includes nsFoo.h
+                                             │  (now just: #include "nsfoo_shim.h")
+                          ┌──────────────────▼───────────────────────┐
+  Layer 3: C++ Shim       │  class nsFoo {                           │
+  (nsfoo_shim.h)          │    int Bar(int x) const {                │
+                          │      return fox_nsfoo_bar(handle_, x);   │
+                          │    }                                      │
+                          │    FoxNsFoo* handle_;                    │
+                          │  };                                       │
+                          └──────────────────┬───────────────────────┘
+                                             │  calls fox_nsfoo_bar()
+                                             │  (C function via ABI)
+                          ┌──────────────────▼───────────────────────┐
+  Layer 2: C FFI          │  // nsfoo_ffi.h (generated by cbindgen)  │
+  (nsfoo_ffi.h)           │  int fox_nsfoo_bar(FoxNsFoo*, int x);    │
+                          └──────────────────┬───────────────────────┘
+                                             │  links to Rust
+                          ┌──────────────────▼───────────────────────┐
+  Layer 1: Rust           │  pub extern "C" fn fox_nsfoo_bar(        │
+  (lib.rs)                │      ptr: *mut FoxNsFoo, x: c_int        │
+                          │  ) -> c_int {                             │
+                          │      catch_unwind(|| (*ptr).0.bar(x))    │
+                          │  }                                        │
+                          └──────────────────────────────────────────┘
+```
+
+---
+
+## File Layout: Before vs. After
+
+### `.cpp` + `.h` Pair Conversion
+
+```
+BEFORE                          AFTER
+
+nsFoo.h                         nsFoo.h
+  (full class definition)         #pragma once
+                                  #include "nsfoo_shim.h"    ← 1 line
+
+nsFoo.cpp                       nsFoo.cpp
+  (full implementation)           // implementation in Rust
+                                  #include "nsFoo.h"         ← 1 line
+
+                                nsfoo_shim.h     ← NEW (Layer 3)
+                                nsfoo_ffi.h      ← NEW (Layer 2, generated)
+                                rust/nsfoo/
+                                  Cargo.toml     ← NEW
+                                  src/lib.rs     ← NEW (Layer 1)
+                                  cbindgen.toml  ← NEW
+```
+
+### Header-Only Conversion
+
+```
+BEFORE                          AFTER
+
+nsFoo.h                         nsFoo.h
+  (full type/inline defs)         #pragma once
+                                  #include "nsfoo_shim.h"    ← 1 line
+
+                                nsfoo_shim.h     ← NEW (Layer 3)
+                                nsfoo_ffi.h      ← NEW (Layer 2, generated)
+                                rust/nsfoo/
+                                  Cargo.toml     ← NEW
+                                  src/lib.rs     ← NEW (Layer 1)
+                                  cbindgen.toml  ← NEW
+```
+
+---
+
+## Design Invariants
+
+These rules must hold for every conversion:
+
+1. **Callers never change.** Any file that `#include`s the original header continues to compile without modification.
+2. **The public API is identical.** The C++ shim exposes the same class names, method names, parameter types, return types, and const-correctness as the original.
+3. **One PR, one file-pair.** No exceptions.
+4. **Phase 4 is the only phase that edits existing files.** All other phases are additive.
+5. **Panics must not cross the FFI boundary.** Every `extern "C"` function body is wrapped in `catch_unwind`.
+6. **The FFI boundary is pure C.** No C++ types, no C++ exceptions, no C++ templates in the generated header.
+
+---
+
+## Cross-References
+
+- [01-PHASE-0-PREPARE.md](./01-PHASE-0-PREPARE.md) — Phase 0 detail
+- [02-PHASE-1-RUST.md](./02-PHASE-1-RUST.md) — Phase 1 detail
+- [03-PHASE-2-C-FFI.md](./03-PHASE-2-C-FFI.md) — Phase 2 detail
+- [04-PHASE-3-CPP-SHIM.md](./04-PHASE-3-CPP-SHIM.md) — Phase 3 detail
+- [05-PHASE-4-SWITCHOVER.md](./05-PHASE-4-SWITCHOVER.md) — Phase 4 detail
+- [06-PHASE-5-VALIDATE.md](./06-PHASE-5-VALIDATE.md) — Phase 5 detail
+- [07-PHASE-6-MERGE.md](./07-PHASE-6-MERGE.md) — Phase 6 detail
+- [08-CONFLICT-AVOIDANCE.md](./08-CONFLICT-AVOIDANCE.md) — conflict avoidance rules
+- [09-CHECKLIST-TEMPLATE.md](./09-CHECKLIST-TEMPLATE.md) — PR checklist
+- [ROADMAP.md](./ROADMAP.md) — milestone planning
