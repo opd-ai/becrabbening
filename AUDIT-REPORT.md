@@ -15,9 +15,9 @@ Generated: 2026-03-23
 ### WARNING — Phases 1–3 validation failures do not halt the pipeline
 
 - **Location**: `loop.sh:381-431`
-- **Issue**: When `run_validation` fails after Phases 1, 2, or 3 and `FAIL.md` does not fix the problem, the loop logs `"FAIL (persisted)"` but continues unconditionally to the next phase. A target with a broken Rust crate (Phase 1 fail) proceeds through Phases 2–6 and is marked complete at line 482 via `mark_target_complete`. Only Phase 5 validation failure triggers the `continue` (line 464) that skips `mark_target_complete` and preserves the target for retry.
-- **Impact**: A fundamentally broken target can be marked as "complete" in `TARGETS.md`, preventing automatic retry on re-run. Subsequent phases (C FFI, shim, switchover) may produce invalid artifacts on top of a broken Rust crate.
-- **Suggested fix**: After the FAIL.md retry at Phases 1–3, if validation still fails, either (a) execute `continue` to skip to the next target (matching Phase 5 behavior), or (b) add a `--strict` mode flag that halts the pipeline on persisted failures at any phase.
+- **Issue**: When `run_validation` fails after Phases 1, 2, or 3 and `FAIL.md` does not fix the problem, the loop logs `"FAIL (persisted)"` but continues unconditionally to the next phase. A target with a broken Rust crate (Phase 1 fail) proceeds through Phases 2–4 producing potentially invalid artifacts. **Mitigating factor**: Phase 5's validation gate (line 454) would catch most such failures (e.g., `cargo test` fails on the broken crate) and the `continue` at line 464 would prevent marking the target complete. However, an edge case exists: if all phases fail to produce _any_ artifacts, `run_validation` conditionally skips all checks (lines 187, 200, 213, 226 — each guarded by file-existence tests) and returns success, allowing the target to reach Phase 6 and be marked complete despite having no valid output.
+- **Impact**: In the common case, Phase 5 acts as a safety net. In the edge case where no artifacts are produced, a hollow target can be marked "complete" in `TARGETS.md`, preventing retry. Intermediate phases (2–4) waste Copilot CLI invocations on a broken foundation regardless.
+- **Suggested fix**: After the FAIL.md retry at Phases 1–3, if validation still fails, either (a) execute `continue` to skip to the next target (matching Phase 5 behavior), or (b) add a `--strict` mode flag that halts the pipeline on persisted failures at any phase. Additionally, `run_validation` should return failure if _no_ checks were actually executed (no artifacts found to validate).
 
 ### WARNING — Converted-file heuristic fails for `#ifndef`/`#define`/`#endif` include guards
 
@@ -105,6 +105,13 @@ Generated: 2026-03-23
 - **Impact**: Converting a non-leaf target means its dependents still reference the original header, which after switchover is a thin redirect. This should still work (the shim preserves the API), but it violates the documented leaf-first ordering strategy from `ROADMAP.md`.
 - **Suggested fix**: When no pure leaves exist, rank candidates by the number of times they appear in column 1 of the dependency graph (fewest dependents first), rather than using all candidates equally. Add a comment documenting this fallback behavior.
 
+### WARNING — Phase 6 failure still marks target as complete
+
+- **Location**: `loop.sh:468-486`
+- **Issue**: If Phase 6 (Merge) delegation fails (line 471 returns non-zero), the loop logs `"WARNING"` at line 474 but continues to `mark_target_complete` at line 482. Unlike Phase 5 (which uses `continue` to skip marking), Phase 6 failure does not prevent the target from being marked complete. There is no validation gate after Phase 6.
+- **Impact**: A target whose merge failed (e.g., PR creation failed, `--ff-only` merge rejected) is marked as complete in `TARGETS.md`. On re-run, this target will be skipped rather than retried. Manual intervention is required to uncheck the target in `TARGETS.md` and retry.
+- **Suggested fix**: After Phase 6 failure, either (a) skip `mark_target_complete` (via `continue`), or (b) add a post-merge verification check (e.g., verify the `oxidized/{name}` tag exists in the submodule before marking complete).
+
 ### INFO — `loop.sh` creates oxidize branch before Phase 0 delegation
 
 - **Location**: `loop.sh:358`
@@ -156,7 +163,7 @@ Generated: 2026-03-23
 | Ctrl+C during any phase | `trap cleanup INT TERM` (line 43) prints summary and exits 130 | ✅ None — target remains unchecked in TARGETS.md |
 | Re-run after interrupt | `get_pending_targets()` reads unchecked items; resumes from first pending | ✅ Idempotent |
 | Phase 5 `continue` skip | Target stays unchecked in TARGETS.md (line 464 skips `mark_target_complete`) | ✅ Target retried on re-run |
-| Phase 6 failure | Target is still marked complete (line 482 runs unconditionally after Phase 6) | ⚠️ A failed merge is marked complete — manual cleanup needed |
+| Phase 6 failure | Target is still marked complete (line 482 runs unconditionally after Phase 6) | ⚠️ See WARNING finding: "Phase 6 failure still marks target as complete" |
 | `TARGETS.md` corruption | `sed` uses temp file + `mv` (lines 266–268) — atomic replacement | ✅ No partial writes |
 
 ---
@@ -168,7 +175,7 @@ Generated: 2026-03-23
 | 1 | Callers never change | Phase 3 API fidelity checklist; Phase 5 contract tests | ✅ Yes — contract tests catch regressions |
 | 2 | Public API is identical | Phase 3 shim construction; Phase 5 ABI symbol diff | ✅ Yes — `nm` check validates at ABI level |
 | 3 | One PR, one file-pair | `TARGETS.md` one-at-a-time iteration; checklist Scope section | ✅ Yes — structural enforcement via loop |
-| 4 | Phase 4 is only phase editing existing files | Phases 0–3 are additive by prompt instructions; Phase 4 docs are explicit | ⚠️ Partially — relies on Copilot compliance; no automated file-edit detection |
+| 4 | Phase 4 is only phase editing existing files | Phases 0–3 are additive by prompt instructions; Phase 4 docs are explicit | ⚠️ Partially — relies on Copilot compliance; no automated file-edit detection. Could be strengthened by comparing `git status` output before/after each phase to verify Phases 0–3 only create new files |
 | 5 | Panics must not cross FFI boundary | Phase 1 prompt requires `catch_unwind`; Phase 5 validates | ⚠️ Partially — `run_validation` doesn't test for panic propagation directly |
 | 6 | FFI boundary is pure C | Phase 2 `gcc -xc -fsyntax-only` validation | ✅ Yes — compiler enforces C-only syntax |
 
@@ -192,7 +199,7 @@ Generated: 2026-03-23
 | Severity | Count | Summary |
 |----------|-------|---------|
 | CRITICAL | 0 | No critical issues found |
-| WARNING | 6 | Pipeline error propagation (1), file detection heuristics (2), PR gate substring match (1), doc/code mismatch (1), silent branch fallback (1) |
+| WARNING | 7 | Pipeline error propagation (1), file detection heuristics (2), PR gate substring match (1), doc/code mismatch (1), silent branch fallback (1), merge failure marking (1) |
 | INFO | 4 | Checklist gap (1), fallback strategy (1), branch cleanup (1), log clarity (1) |
 
 **Conclusion**: Zero CRITICAL findings. The workflow is logically reliable for its intended use case. The WARNING-level findings are recoverable edge cases that would primarily affect automation reliability in unusual environments (traditional include guards, path-prefixed includes, substring PR matches). The core seven-phase loop, checkpoint/resume mechanism, and validation gates are sound.
