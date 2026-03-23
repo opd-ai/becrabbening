@@ -250,7 +250,7 @@ while IFS= read -r line; do
             sed 's|.*/||' | \
             while IFS= read -r inc_base; do
                 [ -n "$inc_base" ] && echo "$includer_target $inc_base" >> "$INCLUDE_INDEX"
-            done
+            done || true
     }
 
     # Scan the header file
