@@ -56,10 +56,13 @@ trap cleanup EXIT
 
 # ─── Validate inputs ─────────────────────────────────────────────────────────
 
-SOURCE_DIR="$(cd "$SOURCE_DIR" && pwd)"
-
 if [ ! -d "$SOURCE_DIR" ]; then
     echo "ERROR: Source directory $SOURCE_DIR does not exist." >&2
+    exit 1
+fi
+
+if ! SOURCE_DIR="$(cd "$SOURCE_DIR" && pwd)"; then
+    echo "ERROR: Failed to resolve absolute path for source directory: $SOURCE_DIR" >&2
     exit 1
 fi
 
@@ -118,12 +121,12 @@ echo "--- Step 2: Identifying already-converted files ---"
 
 while IFS= read -r header; do
     # Check if the header is a thin redirect (contains only #include of a shim)
-    if grep -qE '^\s*#include\s+"[^"]*_shim\.h"' "$header" 2>/dev/null; then
+    if grep -qE '^[[:space:]]*#include[[:space:]]+"[^"]*_shim\.h"' "$header" 2>/dev/null; then
         # Count lines that are actual #include directives to a shim
-        shim_includes=$(grep -cE '^\s*#include\s+"[^"]*_shim\.h"' "$header" 2>/dev/null || true)
+        shim_includes=$(grep -cE '^[[:space:]]*#include[[:space:]]+"[^"]*_shim\.h"' "$header" 2>/dev/null || true)
         # Count all non-empty, non-comment, non-pragma lines
         substantive_lines=$(sed 's|//.*||; s|/\*.*\*/||' "$header" \
-            | grep -cvE '^\s*(#pragma|$)' 2>/dev/null || true)
+            | grep -cvE '^[[:space:]]*(#pragma|$)' 2>/dev/null || true)
         if [ "$substantive_lines" -le "$shim_includes" ]; then
             echo "$header" >> "$CONVERTED"
         fi
@@ -136,9 +139,9 @@ echo "  Found $converted_count already-converted files."
 # Also check for existing TARGETS.md completed items
 : > "$EXISTING_DONE"
 if [ -f "$OUTPUT_FILE" ]; then
-    grep -E '^\s*-\s*\[x\]\s+' "$OUTPUT_FILE" \
-        | sed 's/^\s*-\s*\[x\]\s*//' \
-        | sed 's/\s*$//' > "$EXISTING_DONE" 2>/dev/null || true
+    grep -E '^[[:space:]]*-[[:space:]]*\[x\][[:space:]]+' "$OUTPUT_FILE" \
+        | sed 's/^[[:space:]]*-[[:space:]]*\[x\][[:space:]]*//' \
+        | sed 's/[[:space:]]*$//' > "$EXISTING_DONE" 2>/dev/null || true
     done_count=$(wc -l < "$EXISTING_DONE")
     echo "  Found $done_count previously completed targets in $OUTPUT_FILE."
 fi
@@ -176,7 +179,7 @@ while IFS= read -r header; do
 
     # Count public API symbols as a proxy for API surface size
     # Match class/struct/enum declarations and function-like declarations
-    api_size=$(grep -cE '^\s*(class\s|struct\s|enum\s|typedef\s|using\s|inline\s|constexpr\s|#define\s)' "$header" 2>/dev/null || echo "0")
+    api_size=$(grep -cE '^[[:space:]]*(class[[:space:]]|struct[[:space:]]|enum[[:space:]]|typedef[[:space:]]|using[[:space:]]|inline[[:space:]]|constexpr[[:space:]]|#define[[:space:]])' "$header" 2>/dev/null || echo "0")
 
     # Record: api_size target_name header_path has_cpp
     echo "$api_size $target_name $header $has_cpp" >> "$CANDIDATES"
@@ -207,43 +210,60 @@ echo "--- Step 4: Building #include dependency graph ---"
 # (i.e., included_header is a dependency OF including_header)
 : > "$DEPGRAPH"
 
+# Build header basename -> target index to avoid O(N^2) greps
+HEADER_INDEX="$WORK_DIR/header-index.txt"
+INCLUDE_INDEX="$WORK_DIR/include-index.txt"
+: > "$HEADER_INDEX"
+: > "$INCLUDE_INDEX"
+
+# First pass: record, for each candidate header basename, which target it belongs to.
 while IFS= read -r line; do
-    # Parse candidate fields
     target_name="$(echo "$line" | awk '{print $2}')"
     header_path="$(echo "$line" | awk '{print $3}')"
     basename_h="$(basename "$header_path")"
-
-    # Build the include pattern for exact basename matching
-    include_pattern="#include\s*[\"<](.*\/)?${basename_h}[\">]"
-
-    # Search for other candidate files that #include this header
-    while IFS= read -r other_line; do
-        other_target="$(echo "$other_line" | awk '{print $2}')"
-        other_header="$(echo "$other_line" | awk '{print $3}')"
-        other_has_cpp="$(echo "$other_line" | awk '{print $4}')"
-
-        # Skip self
-        if [ "$other_target" = "$target_name" ]; then
-            continue
-        fi
-
-        # Check if the other header includes this header (exact basename match)
-        if grep -qE "$include_pattern" "$other_header" 2>/dev/null; then
-            # other_target depends on target_name
-            echo "$target_name $other_target" >> "$DEPGRAPH"
-        fi
-
-        # Also check the .cpp file if it exists
-        if [ "$other_has_cpp" = "1" ]; then
-            other_dir="$(dirname "$other_header")"
-            other_cpp="$other_dir/$(basename "$other_header" .h).cpp"
-            if [ -f "$other_cpp" ] && grep -qE "$include_pattern" "$other_cpp" 2>/dev/null; then
-                echo "$target_name $other_target" >> "$DEPGRAPH"
-            fi
-        fi
-    done < "$CANDIDATES"
-
+    echo "$basename_h $target_name" >> "$HEADER_INDEX"
 done < "$CANDIDATES"
+
+# Second pass: for each candidate's header/cpp, extract included header basenames once.
+while IFS= read -r line; do
+    includer_target="$(echo "$line" | awk '{print $2}')"
+    header_path="$(echo "$line" | awk '{print $3}')"
+    has_cpp="$(echo "$line" | awk '{print $4}')"
+
+    # Helper: scan a single source file for #include basenames
+    scan_includes() {
+        local src_file="$1"
+        if [ ! -f "$src_file" ]; then
+            return
+        fi
+        grep -hE '^[[:space:]]*#include[[:space:]]*["<]([^"<>/]+\.h)[">]' "$src_file" 2>/dev/null | \
+            sed -E 's/^[[:space:]]*#include[[:space:]]*["<]([^"<>/]+\.h)[">].*/\1/' | \
+            while IFS= read -r inc_base; do
+                [ -n "$inc_base" ] && echo "$includer_target $inc_base" >> "$INCLUDE_INDEX"
+            done
+    }
+
+    # Scan the header file
+    scan_includes "$header_path"
+
+    # Scan the .cpp file if it exists
+    if [ "$has_cpp" = "1" ]; then
+        header_dir="$(dirname "$header_path")"
+        cpp_path="$header_dir/$(basename "$header_path" .h).cpp"
+        scan_includes "$cpp_path"
+    fi
+done < "$CANDIDATES"
+
+# Build dependency edges: included_target -> includer_target, joined via header basename.
+awk 'NR==FNR { header_to_target[$1]=$2; next }
+     {
+         includer = $1;
+         incbase  = $2;
+         included = header_to_target[incbase];
+         if (included != "" && included != includer) {
+             print included, includer;
+         }
+     }' "$HEADER_INDEX" "$INCLUDE_INDEX" >> "$DEPGRAPH"
 
 # Deduplicate
 sort -u "$DEPGRAPH" -o "$DEPGRAPH"

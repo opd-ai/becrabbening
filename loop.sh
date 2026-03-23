@@ -125,6 +125,18 @@ log_and_print "Firefox source:    ${FIREFOX_DIR:-not configured}"
 log_and_print "Prompt directory:  $PROMPT_DIR"
 log_and_print "Max targets:       $MAX_TARGETS"
 
+# ─── Helper: resolve working directory for phases ────────────────────────────
+# When a Firefox submodule is present, phases and validation operate inside it.
+# Otherwise they operate in the current directory.
+
+phase_work_dir() {
+    if [ -n "$FIREFOX_DIR" ]; then
+        echo "$FIREFOX_DIR"
+    else
+        pwd
+    fi
+}
+
 # ─── Helper: delegate a prompt to copilot ────────────────────────────────────
 
 delegate() {
@@ -138,32 +150,43 @@ delegate() {
     fi
 
     local prompt_content
+    local work_dir
+    work_dir="$(phase_work_dir)"
     if [ -n "$target_name" ]; then
         prompt_content="Current target file-pair name: ${target_name}
+Working directory: ${work_dir}
 
 $(cat "$prompt_file")"
     else
-        prompt_content="$(cat "$prompt_file")"
+        prompt_content="Working directory: ${work_dir}
+
+$(cat "$prompt_file")"
     fi
 
     log "Delegating: $prompt_name (target: ${target_name:-none})"
+    # Temporarily disable -e so we can capture the copilot exit status from a pipeline.
+    set +e
     yes | copilot -p "$prompt_content" --allow-all-tools --deny-tool sudo
-    local rc=$?
+    local rc=${PIPESTATUS[1]}
+    # Re-enable -e to restore the script's error handling behavior.
+    set -e
     log "Delegation complete: $prompt_name (exit code: $rc)"
-    return $rc
+    return "$rc"
 }
 
 # ─── Helper: run validation tests for a target ──────────────────────────────
 
 run_validation() {
     local name="$1"
-    log "Running validation for target: $name"
+    local work_dir
+    work_dir="$(phase_work_dir)"
+    log "Running validation for target: $name (in $work_dir)"
     local rc=0
 
     # Run cargo test on the Rust crate if it exists
-    if [ -d "rust/$name" ]; then
+    if [ -d "$work_dir/rust/$name" ]; then
         set +e
-        (cd "rust/$name" && cargo test 2>&1) | tee "$TEST_OUTPUT"
+        (cd "$work_dir/rust/$name" && cargo test 2>&1) | tee "$TEST_OUTPUT"
         rc=${PIPESTATUS[0]}
         set -e
         if [ "$rc" -ne 0 ]; then
@@ -174,9 +197,9 @@ run_validation() {
     fi
 
     # Verify C FFI header compiles as pure C
-    if [ -f "${name}_ffi.h" ]; then
+    if [ -f "$work_dir/${name}_ffi.h" ]; then
         set +e
-        gcc -xc -fsyntax-only "${name}_ffi.h" 2>&1 | tee -a "$TEST_OUTPUT"
+        gcc -xc -fsyntax-only "$work_dir/${name}_ffi.h" 2>&1 | tee -a "$TEST_OUTPUT"
         rc=${PIPESTATUS[0]}
         set -e
         if [ "$rc" -ne 0 ]; then
@@ -187,9 +210,9 @@ run_validation() {
     fi
 
     # Verify the shim compiles as C++
-    if [ -f "${name}_shim.h" ]; then
+    if [ -f "$work_dir/${name}_shim.h" ]; then
         set +e
-        g++ -xc++ -std=c++17 -fsyntax-only "${name}_shim.h" 2>&1 | tee -a "$TEST_OUTPUT"
+        g++ -xc++ -std=c++17 -fsyntax-only "$work_dir/${name}_shim.h" 2>&1 | tee -a "$TEST_OUTPUT"
         rc=${PIPESTATUS[0]}
         set -e
         if [ "$rc" -ne 0 ]; then
@@ -200,9 +223,9 @@ run_validation() {
     fi
 
     # Run contract tests if they exist
-    if [ -f "test_${name}_contract.cpp" ]; then
+    if [ -f "$work_dir/test_${name}_contract.cpp" ]; then
         set +e
-        g++ -std=c++17 "test_${name}_contract.cpp" "${name}.cpp" -o "test_${name}_contract" 2>&1 | tee -a "$TEST_OUTPUT"
+        (cd "$work_dir" && g++ -std=c++17 "test_${name}_contract.cpp" "${name}.cpp" -o "test_${name}_contract" 2>&1) | tee -a "$TEST_OUTPUT"
         rc=${PIPESTATUS[0]}
         set -e
         if [ "$rc" -ne 0 ]; then
@@ -210,7 +233,7 @@ run_validation() {
             return 1
         fi
         set +e
-        "./test_${name}_contract" 2>&1 | tee -a "$TEST_OUTPUT"
+        (cd "$work_dir" && "./test_${name}_contract" 2>&1) | tee -a "$TEST_OUTPUT"
         rc=${PIPESTATUS[0]}
         set -e
         if [ "$rc" -ne 0 ]; then
@@ -228,7 +251,9 @@ run_validation() {
 
 get_pending_targets() {
     # Extract unchecked items: lines matching "- [ ] name"
-    grep -E '^\s*-\s*\[\s*\]\s+' TARGETS.md | sed 's/^\s*-\s*\[\s*\]\s*//' | sed 's/\s*$//'
+    grep -E '^[[:space:]]*-[[:space:]]*\[[[:space:]]*\][[:space:]]+' TARGETS.md \
+        | sed 's/^[[:space:]]*-[[:space:]]*\[[[:space:]]*\][[:space:]]*//' \
+        | sed 's/[[:space:]]*$//'
 }
 
 # ─── Helper: mark a target as complete in TARGETS.md ─────────────────────────
@@ -236,10 +261,10 @@ get_pending_targets() {
 mark_target_complete() {
     local name="$1"
     # Replace "- [ ] name" with "- [x] name"
-    # Use a temp file for portability across GNU/BSD sed
+    # Use a temp file and -E for portability across GNU/BSD sed
     local tmp
     tmp=$(mktemp)
-    sed "s/^\(\s*-\s*\)\[\s*\]\(\s\+${name}\s*$\)/\1[x]\2/" TARGETS.md > "$tmp"
+    sed -E "s/^([[:space:]]*-[[:space:]]*)\[[[:space:]]*\]([[:space:]]+${name}[[:space:]]*$)/\1[x]\2/" TARGETS.md > "$tmp"
     mv "$tmp" TARGETS.md
     log "Marked target $name as complete in TARGETS.md"
 }

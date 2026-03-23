@@ -119,7 +119,7 @@ cmd_sync() {
     git add "$FIREFOX_DIR"
 
     if ! git diff --cached --quiet "$FIREFOX_DIR"; then
-        git commit -m "chore: update Firefox submodule to latest upstream"
+        git commit --only -- "$FIREFOX_DIR" -m "chore: update Firefox submodule to latest upstream"
         info "Submodule reference updated and committed."
     else
         info "Submodule already at latest upstream."
@@ -187,24 +187,27 @@ cmd_merge() {
     # Switch to main
     git checkout "$FIREFOX_BRANCH" 2>/dev/null || git checkout main
 
-    # Fast-forward merge (linear history)
-    if git merge --ff-only "oxidize/$name"; then
-        info "Fast-forward merge successful."
-    else
-        info "Fast-forward not possible. Performing standard merge..."
-        git merge --no-edit "oxidize/$name"
+    # Fast-forward merge only (linear history required)
+    if ! git merge --ff-only "oxidize/$name"; then
+        die "Fast-forward merge failed for oxidize/$name. Rebase the branch first:
+  cd $FIREFOX_DIR && git rebase $FIREFOX_BRANCH oxidize/$name"
     fi
+    info "Fast-forward merge successful."
 
-    # Tag the completed conversion
-    git tag "oxidized/$name"
-    info "Tagged oxidized/$name"
+    # Tag the completed conversion (guard against re-runs)
+    if git rev-parse -q --verify "refs/tags/oxidized/$name" &>/dev/null; then
+        info "Tag oxidized/$name already exists — skipping."
+    else
+        git tag "oxidized/$name"
+        info "Tagged oxidized/$name"
+    fi
 
     # Update the submodule reference in the parent repo
     cd "$REPO_ROOT"
     git add "$FIREFOX_DIR"
 
     if ! git diff --cached --quiet "$FIREFOX_DIR"; then
-        git commit -m "oxidize($name): update Firefox submodule after merge"
+        git commit --only -- "$FIREFOX_DIR" -m "oxidize($name): update Firefox submodule after merge"
         info "Submodule reference updated in parent repo."
     fi
 
