@@ -36,14 +36,37 @@ See [examples/nsfoo/lib.rs](./examples/nsfoo/lib.rs) for the pattern.
 
 ### Step 3: Port the Logic
 
-Port the C++ logic into **idiomatic Rust**. This is NOT a line-by-line translation:
+Port the C++ logic into **idiomatic, safe Rust**. This is NOT a line-by-line translation. A rote transliteration of buggy C++ code is not acceptable — the purpose of this conversion is to eliminate memory errors and improve safety:
 - Use `Result<T, E>` for fallible operations internally.
 - Use iterators instead of raw loops.
 - Use Rust's ownership model instead of manual memory management.
 - Use `String` and `Vec<T>` internally; convert to C types only at the FFI boundary.
 - Derive `Debug`, `Clone`, etc. where appropriate.
+- Eliminate `unsafe` blocks wherever possible; when `unsafe` is required (FFI boundary), minimize the scope and document the safety invariant with a `// SAFETY:` comment.
 
 Refer to the API surface snapshot from Phase 0 (`test_{name}_contract.cpp` comment block) to ensure every public function is implemented.
+
+### Step 3a: Memory Safety Audit
+
+While porting the C++ logic, actively audit the original code for memory handling issues. For every issue you discover, **do not replicate the bug** — resolve it with safe, idiomatic Rust. Common C++ memory issues to look for:
+
+- **Use-after-free**: Dangling pointers or references to freed memory → Rust's ownership model prevents this.
+- **Double-free**: Multiple `delete` calls on the same pointer → Rust's `Drop` trait handles this.
+- **Buffer overflows**: Out-of-bounds array/pointer access → Use checked indexing, slices, or iterators.
+- **Null pointer dereferences**: Unchecked raw pointer access → Use `Option<T>` instead of nullable pointers.
+- **Uninitialized memory reads**: Use of variables before initialization → Rust prevents this at compile time.
+- **Memory leaks**: Missing `delete`/`free` calls → Rust's RAII and `Drop` handle deallocation automatically.
+- **Data races**: Concurrent access without synchronization → Rust's `Send`/`Sync` traits and borrow checker prevent this.
+- **Integer overflows leading to memory corruption**: Unchecked arithmetic used in allocations → Use checked or saturating arithmetic.
+
+**Document every discovered issue** in a file named `MEMORIES_{name}.cpp.md` (or `MEMORIES_{name}.h.md` for header-only conversions), placed alongside the original source file (e.g., `firefox/path/to/MEMORIES_{name}.cpp.md`). Each entry should include:
+
+1. **Location**: File, line number, and function name in the original C++ code.
+2. **Issue type**: Category from the list above (or a new category if applicable).
+3. **Description**: What the bug is and how it could manifest at runtime.
+4. **Resolution**: How the Rust implementation prevents or resolves this issue.
+
+This file is a required output artifact of Phase 1 — even if no issues are found, create the file with a note that the audit was performed and no issues were discovered.
 
 ### Step 4: Add `extern "C"` FFI Wrappers
 
@@ -145,6 +168,7 @@ This prevents symbol collisions and identifies Rust-backed symbols.
 - [ ] All FFI exports use `#[no_mangle] extern "C"`
 - [ ] All boundary types use `#[repr(C)]` or opaque pointer pattern
 - [ ] All `extern "C"` bodies wrapped in `catch_unwind`
+- [ ] `MEMORIES_{name}.cpp.md` (or `MEMORIES_{name}.h.md`) created alongside the original source file with memory safety audit results
 - [ ] `cargo test` passes
 - [ ] `cargo clippy` passes with no warnings
 
@@ -152,3 +176,4 @@ This prevents symbol collisions and identifies Rust-backed symbols.
 - Do **not** modify any existing C++ files. This phase is purely additive.
 - Do **not** add `rust/{name}` to `moz.build` yet. That happens in Phase 4.
 - Do **not** use C++ types or semantics in the Rust code.
+- Do **not** blindly replicate C++ memory bugs in Rust — fix them using idiomatic, safe Rust patterns.
