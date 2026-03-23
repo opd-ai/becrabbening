@@ -11,6 +11,8 @@ Copy this checklist into every oxidation PR description. Replace `{name}` with t
 - [ ] This PR converts exactly one file-pair: `{name}.cpp` + `{name}.h` (or `{name}.h` only)
 - [ ] No other open PR touches `{name}.h` or `{name}.cpp`
 - [ ] Trunk is green at the base commit of this branch
+- [ ] Contract tests `test_{name}_contract.cpp` written and passing (Phase 0)
+- [ ] API surface snapshot documented
 
 ### Layer 1 — Rust ([02-PHASE-1-RUST.md](./02-PHASE-1-RUST.md))
 

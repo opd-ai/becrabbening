@@ -124,9 +124,11 @@ while IFS= read -r header; do
     if grep -qE '^[[:space:]]*#include[[:space:]]+"[^"]*_shim\.h"' "$header" 2>/dev/null; then
         # Count lines that are actual #include directives to a shim
         shim_includes=$(grep -cE '^[[:space:]]*#include[[:space:]]+"[^"]*_shim\.h"' "$header" 2>/dev/null || true)
-        # Count all non-empty, non-comment, non-pragma lines
+        # Count all non-empty, non-comment, non-preprocessor-directive lines.
+        # Excludes: #pragma, #ifndef, #define, #endif, #include, and empty lines
+        # so that both #pragma once and traditional include-guard styles are handled.
         substantive_lines=$(sed 's|//.*||; s|/\*.*\*/||' "$header" \
-            | grep -cvE '^[[:space:]]*(#pragma|$)' 2>/dev/null || true)
+            | grep -cvE '^[[:space:]]*(#pragma|#ifndef|#define|#endif|#include|$)' 2>/dev/null || true)
         if [ "$substantive_lines" -le "$shim_includes" ]; then
             echo "$header" >> "$CONVERTED"
         fi
@@ -236,8 +238,10 @@ while IFS= read -r line; do
         if [ ! -f "$src_file" ]; then
             return
         fi
-        grep -hE '^[[:space:]]*#include[[:space:]]*["<]([^"<>/]+\.h)[">]' "$src_file" 2>/dev/null | \
-            sed -E 's/^[[:space:]]*#include[[:space:]]*["<]([^"<>/]+\.h)[">].*/\1/' | \
+        # Match both bare and path-prefixed includes, then strip to basename
+        grep -hE '^[[:space:]]*#include[[:space:]]*["<]([^">]+\.h)[">]' "$src_file" 2>/dev/null | \
+            sed -E 's/^[[:space:]]*#include[[:space:]]*["<]([^">]+\.h)[">].*/\1/' | \
+            sed 's|.*/||' | \
             while IFS= read -r inc_base; do
                 [ -n "$inc_base" ] && echo "$includer_target $inc_base" >> "$INCLUDE_INDEX"
             done
@@ -317,11 +321,11 @@ if [ "$SKIP_PR_CHECK" != "1" ] && command -v gh &>/dev/null; then
     while IFS= read -r line; do
         target_name="$(echo "$line" | awk '{print $2}')"
 
-        # Check if any open PR touches this file
+        # Check if any open PR touches this file (exact basename match)
         set +e
         pr_hits=$(gh pr list --state open --json files \
             --jq ".[].files[].path" 2>/dev/null \
-            | grep -c "$target_name" || true)
+            | grep -cE "(^|/)${target_name}\.(h|cpp)$" || true)
         set -e
 
         if [ "$pr_hits" -gt 0 ]; then
