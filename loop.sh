@@ -171,7 +171,7 @@ $(cat "$prompt_file")"
     log "Delegating: $prompt_name (target: ${target_name:-none})"
     # Temporarily disable -e so we can capture the copilot exit status from a pipeline.
     set +e
-    yes | copilot -p "$prompt_content" --allow-all-tools --deny-tool sudo
+    yes | copilot --model claude-4.5-sonnet -p "$prompt_content" --allow-all-tools --deny-tool sudo
     local rc=${PIPESTATUS[1]}
     # Re-enable -e to restore the script's error handling behavior.
     set -e
