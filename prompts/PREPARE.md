@@ -47,7 +47,7 @@ nm -C {name}.o | grep ' T '
 grep -E '^\s*(class|struct|enum|typedef|using|inline|constexpr|#define)' {name}.h
 ```
 
-Record the snapshot in `/tmp/{name}-api-snapshot.txt` for reference. Do **not** commit this file.
+Record the snapshot in a scratch directory (e.g., `.scratch/{name}-api-snapshot.txt`). Add `.scratch/` to `.gitignore`. Do **not** commit this file.
 
 ### Phase 4: Write Contract Tests
 Create `test_{name}_contract.cpp` that exercises every public symbol from Phase 3:

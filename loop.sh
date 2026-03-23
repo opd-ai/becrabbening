@@ -220,7 +220,11 @@ get_pending_targets() {
 mark_target_complete() {
     local name="$1"
     # Replace "- [ ] name" with "- [x] name"
-    sed -i "s/^\(\s*-\s*\)\[\s*\]\(\s\+${name}\s*$\)/\1[x]\2/" TARGETS.md
+    # Use a temp file for portability across GNU/BSD sed
+    local tmp
+    tmp=$(mktemp)
+    sed "s/^\(\s*-\s*\)\[\s*\]\(\s\+${name}\s*$\)/\1[x]\2/" TARGETS.md > "$tmp"
+    mv "$tmp" TARGETS.md
     log "Marked target $name as complete in TARGETS.md"
 }
 

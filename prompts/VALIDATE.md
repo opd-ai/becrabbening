@@ -79,6 +79,14 @@ Pay attention to tests in the subsystem that uses `{name}`.
 
 ### Check 8: ABI Symbol Verification
 
+For static libraries (the default `staticlib` crate type):
+
+```bash
+nm rust/{name}/target/release/lib{name}.a | grep ' T ' | grep fox_{name}_ | sort
+```
+
+For shared libraries (if applicable):
+
 ```bash
 nm -D lib{name}.so | grep ' T ' | grep fox_{name}_ | sort
 ```

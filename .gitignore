@@ -24,3 +24,6 @@ target
 loop.log
 test-output.txt
 .loop-analysis.json
+
+# Scratch files from phase preparation
+.scratch/
