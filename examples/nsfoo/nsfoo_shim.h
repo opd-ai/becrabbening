@@ -11,7 +11,7 @@ extern "C" {
 #include "nsfoo_ffi.h"
 }
 
-#include <utility>  // std::move
+#include <cassert>
 
 /**
  * C++ wrapper for nsFoo. Delegates to the Rust implementation via the C FFI.
@@ -22,8 +22,13 @@ extern "C" {
 class nsFoo {
 public:
     /// Construct nsFoo with the given initial value.
+    /// Aborts the process if the underlying Rust allocation panics.
     explicit nsFoo(int initial)
-        : handle_(fox_nsfoo_new(initial)) {}
+        : handle_(fox_nsfoo_new(initial)) {
+        // fox_nsfoo_new only returns null when the Rust constructor panics.
+        // Treat that as an unrecoverable programmer/environment error.
+        assert(handle_ != nullptr && "fox_nsfoo_new returned null");
+    }
 
     /// Destructor — releases the Rust-owned resource.
     ~nsFoo() {

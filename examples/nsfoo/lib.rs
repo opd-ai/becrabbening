@@ -57,7 +57,7 @@ pub struct FoxNsFoo(NsFoo);
 /// Allocate a new `FoxNsFoo` on the heap and return an owning pointer.
 ///
 /// The caller is responsible for calling [`fox_nsfoo_free`] exactly once.
-/// Returns a null pointer if allocation or construction panics.
+/// Returns a null pointer only if the constructor panics; OOM aborts the process.
 #[no_mangle]
 pub extern "C" fn fox_nsfoo_new(initial: c_int) -> *mut FoxNsFoo {
     match catch_unwind(|| Box::into_raw(Box::new(FoxNsFoo(NsFoo::new(initial as i32))))) {
@@ -83,11 +83,13 @@ pub extern "C" fn fox_nsfoo_free(ptr: *mut FoxNsFoo) {
 
 /// Invoke `NsFoo::bar` and return the result.
 ///
-/// Returns `-1` if `ptr` is null or if the call panics.
+/// # Safety
+/// `ptr` must be a non-null pointer previously returned by [`fox_nsfoo_new`]
+/// that has not yet been freed. Passing null aborts the process.
 #[no_mangle]
 pub extern "C" fn fox_nsfoo_bar(ptr: *const FoxNsFoo, x: c_int) -> c_int {
     if ptr.is_null() {
-        return -1;
+        std::process::abort();
     }
     match catch_unwind(|| {
         // SAFETY: ptr is non-null and valid for the lifetime of this call.
@@ -95,17 +97,19 @@ pub extern "C" fn fox_nsfoo_bar(ptr: *const FoxNsFoo, x: c_int) -> c_int {
         obj.bar(x as i32) as c_int
     }) {
         Ok(v) => v,
-        Err(_) => -1,
+        Err(_) => std::process::abort(),
     }
 }
 
 /// Invoke `NsFoo::set_value`.
 ///
-/// Has no effect if `ptr` is null.
+/// # Safety
+/// `ptr` must be a non-null pointer previously returned by [`fox_nsfoo_new`]
+/// that has not yet been freed. Passing null aborts the process.
 #[no_mangle]
 pub extern "C" fn fox_nsfoo_set_value(ptr: *mut FoxNsFoo, v: c_int) {
     if ptr.is_null() {
-        return;
+        std::process::abort();
     }
     let _ = catch_unwind(|| {
         // SAFETY: ptr is non-null and valid for the lifetime of this call.
@@ -164,10 +168,8 @@ mod tests {
     }
 
     #[test]
-    fn test_ffi_null_safety() {
-        // None of these should crash.
+    fn test_ffi_null_free() {
+        // Passing NULL to free is always safe.
         fox_nsfoo_free(std::ptr::null_mut());
-        assert_eq!(fox_nsfoo_bar(std::ptr::null(), 0), -1);
-        fox_nsfoo_set_value(std::ptr::null_mut(), 0);
     }
 }

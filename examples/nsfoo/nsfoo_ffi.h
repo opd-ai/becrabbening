@@ -21,8 +21,8 @@ typedef struct FoxNsFoo FoxNsFoo;
 
 /**
  * Allocate a new FoxNsFoo with the given initial value.
- * Returns NULL on allocation failure.
  * The caller must call fox_nsfoo_free() exactly once on the returned pointer.
+ * Returns NULL only if the Rust constructor panics; on OOM the process aborts.
  */
 FoxNsFoo *fox_nsfoo_new(int initial);
 
@@ -34,13 +34,13 @@ void fox_nsfoo_free(FoxNsFoo *ptr);
 
 /**
  * Return value + x (wrapping addition).
- * Returns -1 if ptr is NULL.
+ * Passing a NULL ptr is a programmer error; the process will abort.
  */
 int fox_nsfoo_bar(const FoxNsFoo *ptr, int x);
 
 /**
  * Set the stored value.
- * Has no effect if ptr is NULL.
+ * Passing a NULL ptr is a programmer error; the process will abort.
  */
 void fox_nsfoo_set_value(FoxNsFoo *ptr, int v);
 
