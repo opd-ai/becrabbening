@@ -15,9 +15,11 @@
 # Environment:
 #   PROMPT_DIR      Override the prompt directory (takes precedence over $1)
 #   MAX_TARGETS     Maximum number of targets to process (default: 50)
+#   FIREFOX_DIR     Path to Firefox submodule (default: firefox)
 #
 # Prerequisites:
 #   - TARGETS.md in the working directory listing file-pairs to convert
+#   - Firefox source tree at FIREFOX_DIR (added via firefox-sync.sh init)
 #   - GitHub Copilot CLI installed and authenticated
 #   - cbindgen, cargo, gcc, g++ available on PATH
 #
@@ -43,6 +45,7 @@ trap cleanup INT TERM
 # ─── Constants and defaults ──────────────────────────────────────────────────
 
 MAX_TARGETS="${MAX_TARGETS:-50}"
+FIREFOX_DIR="${FIREFOX_DIR:-firefox}"
 LOG_FILE="loop.log"
 TEST_OUTPUT="test-output.txt"
 
@@ -95,6 +98,18 @@ PROMPT_DIR="${PROMPT_DIR:-${1:-$SCRIPT_DIR/prompts}}"
 # Resolve to absolute path
 PROMPT_DIR="$(cd "$PROMPT_DIR" && pwd)"
 
+# ─── 1b. Firefox Submodule Gate ──────────────────────────────────────────────
+
+if [ -d "$FIREFOX_DIR/.git" ] || [ -f "$FIREFOX_DIR/.git" ]; then
+    FIREFOX_DIR="$(cd "$FIREFOX_DIR" && pwd)"
+    log_and_print "Firefox submodule: $FIREFOX_DIR"
+else
+    echo "WARNING: Firefox submodule not found at $FIREFOX_DIR." >&2
+    echo "Run 'bash firefox-sync.sh init' to set up the Firefox submodule." >&2
+    echo "Continuing without submodule branch management." >&2
+    FIREFOX_DIR=""
+fi
+
 # Validate prompt directory contains required files
 for required in PREPARE.md RUST.md C_FFI.md CPP_SHIM.md SWITCHOVER.md VALIDATE.md MERGE.md FAIL.md; do
     if [ ! -f "$PROMPT_DIR/$required" ]; then
@@ -106,6 +121,7 @@ done
 
 log_and_print "=== BECRABBENING LOOP STARTING ==="
 log_and_print "Working directory: $(pwd)"
+log_and_print "Firefox source:    ${FIREFOX_DIR:-not configured}"
 log_and_print "Prompt directory:  $PROMPT_DIR"
 log_and_print "Max targets:       $MAX_TARGETS"
 
@@ -236,6 +252,53 @@ all_targets_complete() {
     [ "$pending" -eq 0 ]
 }
 
+# ─── Helper: create oxidize branch in Firefox submodule ──────────────────────
+
+firefox_create_branch() {
+    local name="$1"
+    if [ -z "$FIREFOX_DIR" ]; then
+        return 0
+    fi
+
+    log "Creating oxidize/$name branch in Firefox submodule"
+    if bash "$SCRIPT_DIR/firefox-sync.sh" branch "$name"; then
+        log_and_print "Firefox branch oxidize/$name ready."
+    else
+        log_and_print "WARNING: Failed to create Firefox branch oxidize/$name."
+    fi
+}
+
+# ─── Helper: merge oxidize branch in Firefox submodule ───────────────────────
+
+firefox_merge_branch() {
+    local name="$1"
+    if [ -z "$FIREFOX_DIR" ]; then
+        return 0
+    fi
+
+    log "Merging oxidize/$name in Firefox submodule"
+    if bash "$SCRIPT_DIR/firefox-sync.sh" merge "$name"; then
+        log_and_print "Firefox branch oxidize/$name merged and tagged."
+    else
+        log_and_print "WARNING: Failed to merge Firefox branch oxidize/$name."
+    fi
+}
+
+# ─── Helper: sync Firefox submodule with upstream ────────────────────────────
+
+firefox_sync_upstream() {
+    if [ -z "$FIREFOX_DIR" ]; then
+        return 0
+    fi
+
+    log "Syncing Firefox submodule with upstream"
+    if bash "$SCRIPT_DIR/firefox-sync.sh" sync; then
+        log_and_print "Firefox submodule synced with upstream."
+    else
+        log_and_print "WARNING: Failed to sync Firefox submodule with upstream."
+    fi
+}
+
 # ─── 2. Main Loop ────────────────────────────────────────────────────────────
 
 log_and_print "--- Entering main loop ---"
@@ -265,6 +328,9 @@ while [ "$TARGETS_COMPLETED" -lt "$MAX_TARGETS" ]; do
     log_and_print "  TARGET: $CURRENT_TARGET"
     log_and_print "  ($((TARGETS_COMPLETED + 1)) / $MAX_TARGETS max)"
     log_and_print "=========================================="
+
+    # ── Create oxidize branch in Firefox submodule ───────────────────────
+    firefox_create_branch "$CURRENT_TARGET"
 
     # ── Phase 0: Prepare ─────────────────────────────────────────────────
     CURRENT_PHASE="0-prepare"
@@ -384,12 +450,18 @@ while [ "$TARGETS_COMPLETED" -lt "$MAX_TARGETS" ]; do
         phase_summary "$CURRENT_TARGET" "6-merge" "WARNING"
     fi
 
+    # ── Merge oxidize branch in Firefox submodule ────────────────────────
+    firefox_merge_branch "$CURRENT_TARGET"
+
     # ── Mark target complete ─────────────────────────────────────────────
     mark_target_complete "$CURRENT_TARGET"
     TARGETS_COMPLETED=$((TARGETS_COMPLETED + 1))
     log_and_print ""
     log_and_print "=== TARGET COMPLETE: $CURRENT_TARGET ==="
     log_and_print "Targets converted so far: $TARGETS_COMPLETED"
+
+    # ── Sync Firefox submodule with upstream between iterations ──────────
+    firefox_sync_upstream
 done
 
 # ─── 3. Completion ───────────────────────────────────────────────────────────

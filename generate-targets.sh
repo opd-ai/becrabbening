@@ -10,7 +10,7 @@
 #
 # Arguments:
 #   SOURCE_DIR   Root of the Firefox source tree to scan
-#               (default: current directory)
+#               (default: firefox/ submodule, or current directory)
 #
 # Environment:
 #   SOURCE_DIR      Override the source directory (takes precedence over $1)
@@ -31,7 +31,13 @@ set -euo pipefail
 
 # ─── Constants and defaults ──────────────────────────────────────────────────
 
-SOURCE_DIR="${SOURCE_DIR:-${1:-.}}"
+# Default SOURCE_DIR: use $1 if given, otherwise prefer the firefox/ submodule
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+_DEFAULT_DIR="."
+if [ -d "$SCRIPT_DIR/firefox" ]; then
+    _DEFAULT_DIR="$SCRIPT_DIR/firefox"
+fi
+SOURCE_DIR="${SOURCE_DIR:-${1:-$_DEFAULT_DIR}}"
 MAX_TARGETS="${MAX_TARGETS:-20}"
 OUTPUT_FILE="${OUTPUT_FILE:-TARGETS.md}"
 SKIP_PR_CHECK="${SKIP_PR_CHECK:-0}"
