@@ -105,8 +105,8 @@ cmd_sync() {
             git checkout -b "$FIREFOX_BRANCH" "upstream/$FIREFOX_BRANCH"
         fi
         git merge --ff-only "upstream/$FIREFOX_BRANCH" || {
-            info "Fast-forward failed. Attempting rebase..."
-            git rebase "upstream/$FIREFOX_BRANCH"
+            die "Fast-forward merge failed for $FIREFOX_BRANCH. The local branch has diverged from upstream.
+  To fix: cd $FIREFOX_DIR && git rebase upstream/$FIREFOX_BRANCH"
         }
     else
         info "Currently on branch $current_branch — not auto-merging upstream."
@@ -155,7 +155,11 @@ cmd_branch() {
         git checkout "oxidize/$name"
     else
         # Start from the main tracking branch
-        git checkout "$FIREFOX_BRANCH" 2>/dev/null || git checkout main 2>/dev/null || true
+        if ! git checkout "$FIREFOX_BRANCH" 2>/dev/null; then
+            if ! git checkout main 2>/dev/null; then
+                die "Cannot find branch $FIREFOX_BRANCH or main to base oxidize/$name on."
+            fi
+        fi
         git checkout -b "oxidize/$name"
         info "Created and switched to branch oxidize/$name"
     fi

@@ -55,6 +55,11 @@ TEST_FAILURES=0
 CURRENT_TARGET=""
 CURRENT_PHASE=""
 
+# Per-run skip list: targets that failed and should not be retried this run.
+# Prevents infinite loops when `continue` re-enters the while loop and
+# get_pending_targets would otherwise return the same failing target.
+SKIPPED_TARGETS=""
+
 # ─── Logging helpers ─────────────────────────────────────────────────────────
 
 log() {
@@ -182,6 +187,7 @@ run_validation() {
     work_dir="$(phase_work_dir)"
     log "Running validation for target: $name (in $work_dir)"
     local rc=0
+    local checks_run=0
 
     # Run cargo test on the Rust crate if it exists
     if [ -d "$work_dir/rust/$name" ]; then
@@ -194,6 +200,7 @@ run_validation() {
             return 1
         fi
         log "cargo test PASSED for $name"
+        checks_run=$((checks_run + 1))
     fi
 
     # Verify C FFI header compiles as pure C
@@ -207,6 +214,7 @@ run_validation() {
             return 1
         fi
         log "C FFI header validation PASSED for $name"
+        checks_run=$((checks_run + 1))
     fi
 
     # Verify the shim compiles as C++
@@ -220,6 +228,7 @@ run_validation() {
             return 1
         fi
         log "C++ shim compilation PASSED for $name"
+        checks_run=$((checks_run + 1))
     fi
 
     # Run contract tests if they exist
@@ -241,9 +250,17 @@ run_validation() {
             return 1
         fi
         log "Contract tests PASSED for $name"
+        checks_run=$((checks_run + 1))
     fi
 
-    log "All validations PASSED for $name"
+    # Fail if no artifacts were found to validate — prevents hollow targets
+    # from silently passing when no phases produced any output.
+    if [ "$checks_run" -eq 0 ]; then
+        log "WARNING: No artifacts found to validate for $name"
+        return 1
+    fi
+
+    log "All validations PASSED for $name ($checks_run check(s) executed)"
     return 0
 }
 
@@ -251,9 +268,30 @@ run_validation() {
 
 get_pending_targets() {
     # Extract unchecked items: lines matching "- [ ] name"
-    grep -E '^[[:space:]]*-[[:space:]]*\[[[:space:]]*\][[:space:]]+' TARGETS.md \
+    local all_pending
+    all_pending=$(grep -E '^[[:space:]]*-[[:space:]]*\[[[:space:]]*\][[:space:]]+' TARGETS.md \
         | sed 's/^[[:space:]]*-[[:space:]]*\[[[:space:]]*\][[:space:]]*//' \
-        | sed 's/[[:space:]]*$//'
+        | sed 's/[[:space:]]*$//')
+
+    # Filter out targets that have been skipped during this run
+    if [ -n "$SKIPPED_TARGETS" ]; then
+        echo "$all_pending" | while IFS= read -r t; do
+            case "$SKIPPED_TARGETS" in
+                *"|${t}|"*) ;;   # skip it
+                *)          echo "$t" ;;
+            esac
+        done
+    else
+        echo "$all_pending"
+    fi
+}
+
+# ─── Helper: record a target as skipped for this run ─────────────────────────
+
+skip_target() {
+    local name="$1"
+    SKIPPED_TARGETS="${SKIPPED_TARGETS}|${name}|"
+    log "Target $name deferred for the remainder of this run"
 }
 
 # ─── Helper: mark a target as complete in TARGETS.md ─────────────────────────
@@ -384,7 +422,9 @@ while [ "$TARGETS_COMPLETED" -lt "$MAX_TARGETS" ]; do
         delegate "FAIL.md" "$CURRENT_TARGET" || true
         if ! run_validation "$CURRENT_TARGET"; then
             log_and_print "Validation still failing after FAIL.md for $CURRENT_TARGET Phase 1."
-            phase_summary "$CURRENT_TARGET" "1-rust" "FAIL (persisted)"
+            phase_summary "$CURRENT_TARGET" "1-rust" "FAIL (persisted — skipping target)"
+            skip_target "$CURRENT_TARGET"
+            continue
         fi
     fi
 
@@ -405,7 +445,9 @@ while [ "$TARGETS_COMPLETED" -lt "$MAX_TARGETS" ]; do
         delegate "FAIL.md" "$CURRENT_TARGET" || true
         if ! run_validation "$CURRENT_TARGET"; then
             log_and_print "Validation still failing after FAIL.md for $CURRENT_TARGET Phase 2."
-            phase_summary "$CURRENT_TARGET" "2-c-ffi" "FAIL (persisted)"
+            phase_summary "$CURRENT_TARGET" "2-c-ffi" "FAIL (persisted — skipping target)"
+            skip_target "$CURRENT_TARGET"
+            continue
         fi
     fi
 
@@ -426,7 +468,9 @@ while [ "$TARGETS_COMPLETED" -lt "$MAX_TARGETS" ]; do
         delegate "FAIL.md" "$CURRENT_TARGET" || true
         if ! run_validation "$CURRENT_TARGET"; then
             log_and_print "Validation still failing after FAIL.md for $CURRENT_TARGET Phase 3."
-            phase_summary "$CURRENT_TARGET" "3-cpp-shim" "FAIL (persisted)"
+            phase_summary "$CURRENT_TARGET" "3-cpp-shim" "FAIL (persisted — skipping target)"
+            skip_target "$CURRENT_TARGET"
+            continue
         fi
     fi
 
@@ -461,6 +505,7 @@ while [ "$TARGETS_COMPLETED" -lt "$MAX_TARGETS" ]; do
             log_and_print "CRITICAL: Validation still failing after FAIL.md for $CURRENT_TARGET."
             log_and_print "Manual intervention required. Skipping target."
             phase_summary "$CURRENT_TARGET" "5-validate" "FAIL (manual intervention needed)"
+            skip_target "$CURRENT_TARGET"
             continue
         fi
     fi
@@ -472,7 +517,11 @@ while [ "$TARGETS_COMPLETED" -lt "$MAX_TARGETS" ]; do
         phase_summary "$CURRENT_TARGET" "6-merge" "DONE"
     else
         log_and_print "WARNING: Phase 6 delegation returned non-zero for $CURRENT_TARGET."
-        phase_summary "$CURRENT_TARGET" "6-merge" "WARNING"
+        phase_summary "$CURRENT_TARGET" "6-merge" "FAIL (merge incomplete — skipping target)"
+        skip_target "$CURRENT_TARGET"
+        # Sync submodule before moving on so it stays current for subsequent targets
+        firefox_sync_upstream
+        continue
     fi
 
     # ── Merge oxidize branch in Firefox submodule ────────────────────────
