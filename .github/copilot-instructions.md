@@ -43,16 +43,18 @@ Key technologies include Rust (2021 edition, `staticlib` crate type), `cbindgen`
 
 - **Testing**: Write contract tests in Phase 0 before any conversion begins. Maintain passing `cargo test` and `cargo clippy -- -D warnings` (zero warnings) for every Rust crate. Validate with `mach build` and `mach test` in Phase 5. Verify ABI compatibility with `nm` symbol diff — no missing symbols allowed.
 - **Code Review**: Every oxidation PR must include the completed checklist from `09-CHECKLIST-TEMPLATE.md`. Reviewers verify: identical public API preservation, `catch_unwind` on all `extern "C"` functions, `fox_{name}_*` naming, single-pair scope, and conflict gate compliance.
-- **Documentation**: Each conversion follows the phase documents verbatim. New Rust crates include rustdoc comments on all public items and `/// # Safety` sections on all `unsafe` FFI functions. Update the tracking spreadsheet (see `ROADMAP.md`) when status changes.
+- **Documentation**: Each conversion follows the phase documents verbatim. For new Rust crates, prefer adding rustdoc comments on public items and `/// # Safety` sections on `unsafe` FFI functions as a documentation best practice. Update the tracking spreadsheet (see `ROADMAP.md`) when status changes.
 - **Shell Scripts**: All Bash scripts must use POSIX ERE–compatible patterns (`[[:space:]]` not `\s`). `firefox-sync.sh` uses `--ff-only` merges with no fallback, scoped commits via `git commit --only`, and idempotent tag creation via `rev-parse --verify`.
 
-## Networking Best Practices (for Go projects)
+## Networking Best Practices
 
-When declaring network variables, always use interface types:
-- Never use `net.UDPAddr`, `net.IPAddr`, or `net.TCPAddr`. Use `net.Addr` only instead.
-- Never use `net.UDPConn`, use `net.PacketConn` instead
-- Never use `net.TCPConn`, use `net.Conn` instead
-- Never use `net.UDPListener` or `net.TCPListener`, use `net.Listener` instead
-- Never use a type switch or type assertion to convert from an interface type to a concrete type. Use the interface methods instead.
+All networking code in converted Rust modules must enforce **proxy-obedience or fail-closed** across every protocol the browser supports. Never allow a direct connection to bypass a configured proxy.
 
-This approach enhances testability and flexibility when working with different network implementations or mocks.
+- **HTTP/HTTPS**: Always route requests through the system or application-configured proxy. If proxy resolution fails, the connection must fail — never fall back to a direct connection.
+- **WebSocket (`ws://`, `wss://`)**: Proxy the HTTP CONNECT tunnel through the configured proxy before upgrading. Fail closed if the proxy handshake is rejected or unavailable.
+- **FTP**: Honor the FTP proxy setting. If no proxy is configured and the policy requires one, block the request rather than connecting directly.
+- **DNS (DoH / DNS-over-HTTPS)**: Route DNS-over-HTTPS queries through the HTTP proxy stack. Plain DNS must respect the system resolver configuration; never hard-code resolver addresses.
+- **SOCKS (v4/v5)**: When a SOCKS proxy is configured, all TCP and (for SOCKSv5) UDP traffic must transit the proxy. Do not selectively bypass SOCKS for certain protocols.
+- **QUIC / HTTP/3**: Proxy support for QUIC is evolving. If the proxy stack does not support QUIC, fall back to HTTP/2 over the proxy rather than making a direct QUIC connection.
+
+**Fail-closed principle**: If proxy settings are configured but the proxy is unreachable, the connection attempt must return an error — never silently degrade to a direct connection. This preserves user privacy expectations and enterprise network policies.
