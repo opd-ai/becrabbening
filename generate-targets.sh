@@ -113,9 +113,12 @@ echo "--- Step 2: Identifying already-converted files ---"
 while IFS= read -r header; do
     # Check if the header is a thin redirect (contains only #include of a shim)
     if grep -qE '^\s*#include\s+"[^"]*_shim\.h"' "$header" 2>/dev/null; then
-        # Count non-comment, non-empty, non-pragma lines
-        substantive_lines=$(grep -cvE '^\s*(//|/\*|\*|#pragma|$)' "$header" 2>/dev/null || true)
-        if [ "$substantive_lines" -le 1 ]; then
+        # Count lines that are actual #include directives to a shim
+        shim_includes=$(grep -cE '^\s*#include\s+"[^"]*_shim\.h"' "$header" 2>/dev/null || true)
+        # Count all non-empty, non-comment, non-pragma lines
+        substantive_lines=$(sed 's|//.*||; s|/\*.*\*/||' "$header" \
+            | grep -cvE '^\s*(#pragma|$)' 2>/dev/null || true)
+        if [ "$substantive_lines" -le "$shim_includes" ]; then
             echo "$header" >> "$CONVERTED"
         fi
     fi
@@ -166,7 +169,8 @@ while IFS= read -r header; do
     fi
 
     # Count public API symbols as a proxy for API surface size
-    api_size=$(grep -cE '^\s*(class |struct |enum |typedef |using |inline |constexpr |#define |[a-zA-Z].*\(.*\))' "$header" 2>/dev/null || echo "0")
+    # Match class/struct/enum declarations and function-like declarations
+    api_size=$(grep -cE '^\s*(class\s|struct\s|enum\s|typedef\s|using\s|inline\s|constexpr\s|#define\s)' "$header" 2>/dev/null || echo "0")
 
     # Record: api_size target_name header_path has_cpp
     echo "$api_size $target_name $header $has_cpp" >> "$CANDIDATES"
@@ -203,6 +207,9 @@ while IFS= read -r line; do
     header_path="$(echo "$line" | awk '{print $3}')"
     basename_h="$(basename "$header_path")"
 
+    # Build the include pattern for exact basename matching
+    include_pattern="#include\s*[\"<](.*\/)?${basename_h}[\">]"
+
     # Search for other candidate files that #include this header
     while IFS= read -r other_line; do
         other_target="$(echo "$other_line" | awk '{print $2}')"
@@ -214,8 +221,8 @@ while IFS= read -r line; do
             continue
         fi
 
-        # Check if the other header includes this header
-        if grep -qE "#include\s*[\"<].*${basename_h}[\">]" "$other_header" 2>/dev/null; then
+        # Check if the other header includes this header (exact basename match)
+        if grep -qE "$include_pattern" "$other_header" 2>/dev/null; then
             # other_target depends on target_name
             echo "$target_name $other_target" >> "$DEPGRAPH"
         fi
@@ -224,7 +231,7 @@ while IFS= read -r line; do
         if [ "$other_has_cpp" = "1" ]; then
             other_dir="$(dirname "$other_header")"
             other_cpp="$other_dir/$(basename "$other_header" .h).cpp"
-            if [ -f "$other_cpp" ] && grep -qE "#include\s*[\"<].*${basename_h}[\">]" "$other_cpp" 2>/dev/null; then
+            if [ -f "$other_cpp" ] && grep -qE "$include_pattern" "$other_cpp" 2>/dev/null; then
                 echo "$target_name $other_target" >> "$DEPGRAPH"
             fi
         fi
