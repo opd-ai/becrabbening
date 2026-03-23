@@ -99,7 +99,11 @@ cmd_sync() {
     if [ "$current_branch" = "HEAD" ] || [ "$current_branch" = "$FIREFOX_BRANCH" ] || [ "$current_branch" = "main" ]; then
         # On main/master/detached: fast-forward to upstream
         info "Updating $FIREFOX_BRANCH to upstream..."
-        git checkout "$FIREFOX_BRANCH" 2>/dev/null || git checkout -b "$FIREFOX_BRANCH" "upstream/$FIREFOX_BRANCH"
+        if git rev-parse --verify "$FIREFOX_BRANCH" &>/dev/null; then
+            git checkout "$FIREFOX_BRANCH"
+        else
+            git checkout -b "$FIREFOX_BRANCH" "upstream/$FIREFOX_BRANCH"
+        fi
         git merge --ff-only "upstream/$FIREFOX_BRANCH" || {
             info "Fast-forward failed. Attempting rebase..."
             git rebase "upstream/$FIREFOX_BRANCH"
