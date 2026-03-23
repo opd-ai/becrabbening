@@ -55,6 +55,6 @@ All networking code in converted Rust modules must enforce **proxy-obedience or 
 - **FTP**: Honor the FTP proxy setting. If no proxy is configured and the policy requires one, block the request rather than connecting directly.
 - **DNS (DoH / DNS-over-HTTPS)**: Route DNS-over-HTTPS queries through the HTTP proxy stack. Plain DNS must respect the system resolver configuration; never hard-code resolver addresses.
 - **SOCKS (v4/v5)**: When a SOCKS proxy is configured, all TCP and (for SOCKSv5) UDP traffic must transit the proxy. Do not selectively bypass SOCKS for certain protocols.
-- **QUIC / HTTP/3**: Proxy support for QUIC is evolving. If the proxy stack does not support QUIC, fall back to HTTP/2 over the proxy rather than making a direct QUIC connection.
+- **QUIC / HTTP/3**: If the configured proxy does not support QUIC passthrough, downgrade to HTTP/2 over the proxy's TCP connection rather than attempting a direct QUIC connection.
 
 **Fail-closed principle**: If proxy settings are configured but the proxy is unreachable, the connection attempt must return an error — never silently degrade to a direct connection. This preserves user privacy expectations and enterprise network policies.
