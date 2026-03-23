@@ -124,12 +124,18 @@ while IFS= read -r header; do
     if grep -qE '^[[:space:]]*#include[[:space:]]+"[^"]*_shim\.h"' "$header" 2>/dev/null; then
         # Count lines that are actual #include directives to a shim
         shim_includes=$(grep -cE '^[[:space:]]*#include[[:space:]]+"[^"]*_shim\.h"' "$header" 2>/dev/null || true)
-        # Count all non-empty, non-comment, non-preprocessor-directive lines.
+        # Count total #include directives (shim and non-shim alike)
+        total_includes=$(grep -cE '^[[:space:]]*#include[[:space:]]*["<]' "$header" 2>/dev/null || true)
+        # Count non-empty, non-comment, non-preprocessor lines.
         # Excludes: #pragma, #ifndef, #define, #endif, #include, and empty lines
-        # so that both #pragma once and traditional include-guard styles are handled.
+        # so that include guards and the shim redirect itself don't count.
+        # The separate total_includes == shim_includes check below ensures
+        # that non-shim #include lines still disqualify the file.
         substantive_lines=$(sed 's|//.*||; s|/\*.*\*/||' "$header" \
             | grep -cvE '^[[:space:]]*(#pragma|#ifndef|#define|#endif|#include|$)' 2>/dev/null || true)
-        if [ "$substantive_lines" -le "$shim_includes" ]; then
+        # A file is "converted" only if every #include is a shim include
+        # and there is no other substantive code.
+        if [ "$substantive_lines" -eq 0 ] && [ "$total_includes" -eq "$shim_includes" ]; then
             echo "$header" >> "$CONVERTED"
         fi
     fi
