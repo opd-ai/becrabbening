@@ -235,7 +235,7 @@ At the end of Phase 1, you should have:
 
 ## Cross-References
 
-- [02-PHASE-1-RUST.md](./02-PHASE-1-RUST.md) — previous phase (Rust implementation)
+- [01-PHASE-0-PREPARE.md](./01-PHASE-0-PREPARE.md) — previous phase (API snapshot)
 - [02b-ANTI-SLOP-AUDIT.md](./02b-ANTI-SLOP-AUDIT.md) — anti-slop audit (Rust quality gate)
 - [03-PHASE-2-C-FFI.md](./03-PHASE-2-C-FFI.md) — next phase (C FFI header)
 - [00-OVERVIEW.md](./00-OVERVIEW.md) — architecture overview and three-layer sandwich

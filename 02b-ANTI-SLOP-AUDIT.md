@@ -22,7 +22,7 @@ cd rust/{name}
 cargo clippy -- -D warnings -W clippy::pedantic -W clippy::nursery
 ```
 
-Fix every warning. Clippy's pedantic and nursery lints catch many of the patterns listed below automatically. Suppress individual lints only with a `// SAFETY:` or `// RATIONALE:` comment explaining why the suppression is necessary.
+Fix every warning. Clippy's pedantic and nursery lints catch many of the patterns listed below automatically. Suppress individual lints only with a `// RATIONALE:` comment explaining why the suppression is necessary.
 
 ### Step 2 — Scan for slop patterns
 
@@ -356,7 +356,7 @@ fn process(input: &str) -> String {
 
 ---
 
-### S-15 — Missing `#[must_use]` on Result-returning functions
+### S-15 — Missing `#[must_use]` on important return values
 
 **Pattern:** Functions returning `Result` or important values without `#[must_use]`, allowing callers to silently ignore errors.
 
