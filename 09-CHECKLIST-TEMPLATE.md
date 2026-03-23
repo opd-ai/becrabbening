@@ -21,6 +21,7 @@ Copy this checklist into every oxidation PR description. Replace `{name}` with t
 - [ ] All types crossing the FFI boundary use `#[repr(C)]` or the opaque pointer pattern
 - [ ] Every `extern "C"` function body is wrapped in `std::panic::catch_unwind`
 - [ ] Lifecycle functions `fox_{name}_new` and `fox_{name}_free` are present
+- [ ] Memory safety audit performed; `MEMORIES_{name}.cpp.md` (or `.h.md`) created alongside the original source file
 - [ ] `cargo test` passes
 - [ ] `cargo clippy -- -D warnings` passes with no warnings
 
