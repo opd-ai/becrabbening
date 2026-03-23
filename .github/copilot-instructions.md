@@ -17,7 +17,7 @@ Key technologies include Rust (2021 edition, `staticlib` crate type), `cbindgen`
 
 ## Code Assistance Guidelines
 
-1. **Follow the Seven-Phase Workflow Sequentially**: Every conversion must proceed through Phases 0–6 in order. Never skip phases. Phases 0–3 are purely additive (new files only); Phase 4 is the only phase that edits existing files; Phase 5 validates; Phase 6 merges. Refer to the phase documents (`01-PHASE-0-PREPARE.md` through `07-PHASE-6-MERGE.md`) for detailed instructions.
+1. **Follow the Seven-Phase Workflow Sequentially**: Every conversion must proceed through Phases 0–6 in order. Never skip phases. Phases 0–3 are purely additive (new files only); Phase 4 is the only phase that edits existing files; Phase 5 validates; Phase 6 merges. Between Phase 1 and Phase 2, run the anti-slop audit ([02b-ANTI-SLOP-AUDIT.md](./02b-ANTI-SLOP-AUDIT.md)) to detect and fix AI-generated slop patterns in the Rust code. Refer to the phase documents (`01-PHASE-0-PREPARE.md` through `07-PHASE-6-MERGE.md`) for detailed instructions.
 
 2. **Use the `fox_{name}_*` FFI Naming Convention**: All exported Rust symbols must use the `fox_{name}_` prefix (e.g., `fox_nsfoo_new`, `fox_nsfoo_bar`, `fox_nsfoo_free`). C types use the `Fox` prefix (e.g., `FoxNsFoo`). This prevents symbol collisions and identifies Rust-backed symbols. See `02-PHASE-1-RUST.md` and `examples/nsfoo/lib.rs`.
 

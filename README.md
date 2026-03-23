@@ -47,6 +47,7 @@ Each iteration converts exactly **one file-pair** (`.cpp` + `.h`, or just `.h`) 
 | — | [00-OVERVIEW.md](./00-OVERVIEW.md) | Overview | Full loop at a glance, flowchart, file layout diagrams |
 | 0 | [01-PHASE-0-PREPARE.md](./01-PHASE-0-PREPARE.md) | Prepare | Freeze target, snapshot API surface, write contract tests |
 | 1 | [02-PHASE-1-RUST.md](./02-PHASE-1-RUST.md) | Rust | Implement idiomatic Rust replacement, FFI exports |
+| — | [02b-ANTI-SLOP-AUDIT.md](./02b-ANTI-SLOP-AUDIT.md) | Anti-Slop Audit | Detect and fix AI-generated slop patterns in Rust code |
 | 2 | [03-PHASE-2-C-FFI.md](./03-PHASE-2-C-FFI.md) | C FFI | Generate pure-C header via cbindgen |
 | 3 | [04-PHASE-3-CPP-SHIM.md](./04-PHASE-3-CPP-SHIM.md) | C++ Shim | Build C++ wrapper with identical public API |
 | 4 | [05-PHASE-4-SWITCHOVER.md](./05-PHASE-4-SWITCHOVER.md) | Switchover | Minimal atomic edit to redirect existing files |
