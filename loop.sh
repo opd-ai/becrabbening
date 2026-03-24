@@ -310,11 +310,12 @@ run_validation() {
 # ─── Helper: extract pending targets from TARGETS.md ─────────────────────────
 
 get_pending_targets() {
-    # Extract unchecked items: lines matching "- [ ] name"
+    # Extract unchecked items: lines matching "- [ ] name" or "- [ ] name (path + path)"
+    # Only return the target name (first word after the checkbox)
     local all_pending
     all_pending=$(grep -E '^[[:space:]]*-[[:space:]]*\[[[:space:]]*\][[:space:]]+' TARGETS.md \
         | sed 's/^[[:space:]]*-[[:space:]]*\[[[:space:]]*\][[:space:]]*//' \
-        | sed 's/[[:space:]]*$//')
+        | awk '{print $1}')
 
     # Filter out targets that have been skipped during this run
     if [ -n "$SKIPPED_TARGETS" ]; then
@@ -341,11 +342,11 @@ skip_target() {
 
 mark_target_complete() {
     local name="$1"
-    # Replace "- [ ] name" with "- [x] name"
+    # Replace "- [ ] name" or "- [ ] name (path...)" with "- [x] ..."
     # Use a temp file and -E for portability across GNU/BSD sed
     local tmp
     tmp=$(mktemp)
-    sed -E "s/^([[:space:]]*-[[:space:]]*)\[[[:space:]]*\]([[:space:]]+${name}[[:space:]]*$)/\1[x]\2/" TARGETS.md > "$tmp"
+    sed -E "s/^([[:space:]]*-[[:space:]]*)\[[[:space:]]*\]([[:space:]]+${name}([[:space:]].*)?$)/\1[x]\2/" TARGETS.md > "$tmp"
     mv "$tmp" TARGETS.md
     log "Marked target $name as complete in TARGETS.md"
 }

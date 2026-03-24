@@ -59,12 +59,12 @@ Write the file in the format that `loop.sh` expects:
 # Conversion Targets
 
 ## Completed
-- [x] nsFoo
-- [x] nsBar
+- [x] nsFoo (dom/base/nsFoo.h + dom/base/nsFoo.cpp)
+- [x] nsBar (layout/nsBar.h + layout/nsBar.cpp)
 
 ## Pending
-- [ ] nsNextTarget
-- [ ] nsAnotherTarget
+- [ ] nsNextTarget (dom/base/nsNextTarget.h + dom/base/nsNextTarget.cpp)
+- [ ] nsAnotherTarget (layout/nsAnotherTarget.h)
 ```
 
 ## Selection Rules (from ROADMAP.md)
@@ -91,11 +91,11 @@ Selection criteria: leaf-first topological order, smallest API surface first.
 See [ROADMAP.md](./ROADMAP.md) for the target selection strategy.
 
 ## Completed
-- [x] previouslyDone
+- [x] previouslyDone (dir/previouslyDone.h + dir/previouslyDone.cpp)
 
 ## Pending
-- [ ] nextTarget
-- [ ] anotherTarget
+- [ ] nextTarget (dir/nextTarget.h + dir/nextTarget.cpp)
+- [ ] anotherTarget (dir/anotherTarget.h)
 ```
 
 ## What NOT to Do
