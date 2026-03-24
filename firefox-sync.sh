@@ -33,7 +33,8 @@ FIREFOX_DIR="${FIREFOX_DIR:-firefox}"
 FIREFOX_BRANCH="${FIREFOX_BRANCH:-main}"
 
 # Known upstream hosts that must never receive PRs or pushes.
-UPSTREAM_PATTERNS="github.com/mozilla-firefox/ github.com/nicola-nicola/ github.com/nicola/"
+# Matches Mozilla-owned repos (mozilla/, mozilla-firefox/, mozilla-central/, etc.)
+UPSTREAM_PATTERNS="github.com/mozilla"
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 REPO_ROOT="$SCRIPT_DIR"
