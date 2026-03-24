@@ -322,28 +322,32 @@ if [ "$SKIP_PR_CHECK" != "1" ] && command -v gh &>/dev/null; then
     echo "--- Step 7: Checking for open PRs (conflict gate) ---"
 
     FILTERED="$WORK_DIR/filtered.txt"
+    PR_FILES="$WORK_DIR/pr-files.txt"
     : > "$FILTERED"
 
-    while IFS= read -r line; do
-        target_name="$(echo "$line" | awk '{print $2}')"
+    # Fetch the list of files touched by open PRs once, not per-candidate.
+    if gh pr list --state open --json files \
+            --jq ".[].files[].path" > "$PR_FILES" 2>/dev/null; then
 
-        # Check if any open PR touches this file (exact basename match)
-        set +e
-        pr_hits=$(gh pr list --state open --json files \
-            --jq ".[].files[].path" 2>/dev/null \
-            | grep -cE "(^|/)${target_name}\.(h|cpp)$" || true)
-        set -e
+        while IFS= read -r line; do
+            target_name="$(echo "$line" | awk '{print $2}')"
 
-        if [ "$pr_hits" -gt 0 ]; then
-            echo "  SKIP: $target_name — open PR touches this file"
-        else
-            echo "$line" >> "$FILTERED"
-        fi
-    done < "$RANKED"
+            # Check if any open PR touches this file (exact basename match)
+            pr_hits=$(grep -cE "(^|/)${target_name}\.(h|cpp)$" "$PR_FILES" || true)
 
-    cp "$FILTERED" "$RANKED"
-    filtered_count=$(wc -l < "$RANKED")
-    echo "  $filtered_count candidates pass conflict gate."
+            if [ "$pr_hits" -gt 0 ]; then
+                echo "  SKIP: $target_name — open PR touches this file"
+            else
+                echo "$line" >> "$FILTERED"
+            fi
+        done < "$RANKED"
+
+        cp "$FILTERED" "$RANKED"
+        filtered_count=$(wc -l < "$RANKED")
+        echo "  $filtered_count candidates pass conflict gate."
+    else
+        echo "  WARNING: gh pr list failed; skipping conflict gate check."
+    fi
 else
     if [ "$SKIP_PR_CHECK" = "1" ]; then
         echo "--- Step 7: Skipping PR check (SKIP_PR_CHECK=1) ---"
