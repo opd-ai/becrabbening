@@ -1,6 +1,6 @@
 # Phase Overview — The Oxidation Loop
 
-A single iteration of the Becrabbening converts exactly one file-pair (`.cpp` + `.h`, or `.h`-only) through the following 7 phases.
+A single iteration of the Becrabbening converts exactly one file-pair (`.cpp` + `.h`, `.c` + `.h`, or `.h`-only) through the following 7 phases.
 
 See [ROADMAP.md](./ROADMAP.md) for target selection strategy, and [09-CHECKLIST-TEMPLATE.md](./09-CHECKLIST-TEMPLATE.md) for the PR checklist.
 
@@ -44,8 +44,8 @@ See [ROADMAP.md](./ROADMAP.md) for target selection strategy, and [09-CHECKLIST-
                  │
                  ▼
 ┌─────────────────────────────────┐
-│  Phase 3 — C++ SHIM             │
-│  Build C++ wrapper with exact   │
+│  Phase 3 — C/C++ SHIM               │
+│  Build C/C++ wrapper with exact      │
 │  same public API as original    │
 └────────────────┬────────────────┘
                  │
@@ -54,7 +54,7 @@ See [ROADMAP.md](./ROADMAP.md) for target selection strategy, and [09-CHECKLIST-
 │  Phase 4 — SWITCHOVER           │
 │  *** ONLY phase that edits ***  │
 │  *** existing files ***         │
-│  Gut original .h and .cpp,      │
+│  Gut original .h and .cpp/.c,        │
 │  replace with single #include   │
 └────────────────┬────────────────┘
                  │
@@ -88,7 +88,7 @@ See [ROADMAP.md](./ROADMAP.md) for target selection strategy, and [09-CHECKLIST-
 | 1 | Rust | [02-PHASE-1-RUST.md](./02-PHASE-1-RUST.md) | Add (new files) | Zero |
 | — | Anti-Slop Audit | [02b-ANTI-SLOP-AUDIT.md](./02b-ANTI-SLOP-AUDIT.md) | Edit (Rust only) | Zero |
 | 2 | C FFI | [03-PHASE-2-C-FFI.md](./03-PHASE-2-C-FFI.md) | Add (new files) | Zero |
-| 3 | C++ Shim | [04-PHASE-3-CPP-SHIM.md](./04-PHASE-3-CPP-SHIM.md) | Add (new files) | Zero |
+| 3 | C/C++ Shim | [04-PHASE-3-CPP-SHIM.md](./04-PHASE-3-CPP-SHIM.md) | Add (new files) | Zero |
 | 4 | Switchover | [05-PHASE-4-SWITCHOVER.md](./05-PHASE-4-SWITCHOVER.md) | Edit (existing) | Minimal |
 | 5 | Validate | [06-PHASE-5-VALIDATE.md](./06-PHASE-5-VALIDATE.md) | None | Zero |
 | 6 | Merge | [07-PHASE-6-MERGE.md](./07-PHASE-6-MERGE.md) | Delete (deferred) | Deferred |
@@ -102,12 +102,12 @@ Phases 0–3 are purely **additive** — they create new files and never touch e
 ```
                           ┌──────────────────────────────────────────┐
   Existing callers        │  nsFoo* f = new nsFoo(42);               │
-  (unchanged C++)         │  int result = f->Bar(10);                │
+  (unchanged C/C++)       │  int result = f->Bar(10);                │
                           └──────────────────┬───────────────────────┘
                                              │  includes nsFoo.h
                                              │  (now just: #include "nsfoo_shim.h")
                           ┌──────────────────▼───────────────────────┐
-  Layer 3: C++ Shim       │  class nsFoo {                           │
+  Layer 3: C/C++ Shim     │  class nsFoo {                           │
   (nsfoo_shim.h)          │    int Bar(int x) const {                │
                           │      return fox_nsfoo_bar(handle_, x);   │
                           │    }                                      │
@@ -134,7 +134,7 @@ Phases 0–3 are purely **additive** — they create new files and never touch e
 
 ## File Layout: Before vs. After
 
-### `.cpp` + `.h` Pair Conversion
+### `.cpp`/`.c` + `.h` Pair Conversion
 
 ```
 BEFORE                          AFTER
@@ -179,7 +179,7 @@ nsFoo.h                         nsFoo.h
 These rules must hold for every conversion:
 
 1. **Callers never change.** Any file that `#include`s the original header continues to compile without modification.
-2. **The public API is identical.** The C++ shim exposes the same class names, method names, parameter types, return types, and const-correctness as the original.
+2. **The public API is identical.** The C/C++ shim exposes the same class names, method names, parameter types, return types, and const-correctness as the original.
 3. **One PR, one file-pair.** No exceptions.
 4. **Phase 4 is the only phase that edits existing files.** All other phases are additive.
 5. **Panics must not cross the FFI boundary.** Every `extern "C"` function body is wrapped in `catch_unwind`.

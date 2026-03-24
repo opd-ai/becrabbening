@@ -1,6 +1,6 @@
 # Roadmap — The Becrabbening
 
-Planning document for the systematic conversion of Firefox C++ to Rust.
+Planning document for the systematic conversion of Firefox C/C++ to Rust.
 
 See [00-OVERVIEW.md](./00-OVERVIEW.md) for the full conversion loop, and [01-PHASE-0-PREPARE.md](./01-PHASE-0-PREPARE.md) for how each iteration begins.
 
@@ -98,14 +98,15 @@ Maintain a spreadsheet or wiki table with the following columns for every candid
 | `util/foo.cpp` + `util/foo.h` | Pending | — | — | none |
 | `util/bar.cpp` + `util/bar.h` | In Progress | #1234 | @dev | util/foo |
 | `shared/baz.h` | Merged | #1100 | @dev2 | util/foo, util/bar |
-| `core/qux.cpp` + `core/qux.h` | Cleaned | #1050 | @dev3 | shared/baz |
+| `core/qux.c` + `core/qux.h` | Pending | — | — | none |
+| `core/quux.cpp` + `core/quux.h` | Cleaned | #1050 | @dev3 | shared/baz |
 
 **Status values:**
 
 - `Pending` — identified as a target, not yet started
 - `In Progress` — branch created, PR open
 - `Merged` — conversion PR landed, cleanup deferred
-- `Cleaned` — cleanup PR (delete old `.cpp`) also landed
+- `Cleaned` — cleanup PR (delete old `.cpp`/`.c`) also landed
 
 ---
 

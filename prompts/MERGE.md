@@ -5,6 +5,15 @@
 
 This prompt operates on a **Firefox source tree**. The target file-pair name is provided above.
 
+> ⚠️ **Fork-Only Rule:** All PRs and pushes MUST target the owner's own Firefox
+> fork — NEVER Mozilla's upstream or anyone else's fork. Before pushing, verify
+> that `origin` points to your fork:
+> ```bash
+> git remote get-url origin   # Must NOT contain "mozilla"
+> ```
+> If `origin` points to an upstream Mozilla repo, stop immediately and
+> reconfigure (set `FIREFOX_FORK` and re-run `firefox-sync.sh init`).
+
 ## Context
 Read the becrabbening documentation:
 - [07-PHASE-6-MERGE.md](./07-PHASE-6-MERGE.md) — detailed Phase 6 instructions
@@ -13,12 +22,30 @@ Read the becrabbening documentation:
 
 ## Workflow
 
+### Step 0: Verify Fork Remote
+
+Before any push, confirm that `origin` is the owner's fork:
+
+```bash
+origin_url="$(git remote get-url origin)"
+if echo "$origin_url" | grep -qi 'mozilla'; then
+    echo "ERROR: origin points to upstream ($origin_url). Refusing to push." >&2
+    exit 1
+fi
+```
+
 ### Step 1: PR Title
 
 Use this exact format:
 
 ```
 oxidize({name}): replace {name}.cpp with Rust + C shim
+```
+
+For C source conversions:
+
+```
+oxidize({name}): replace {name}.c with Rust + C shim
 ```
 
 For header-only conversions:
@@ -75,10 +102,10 @@ Mark the file-pair as "Merged" in the tracking spreadsheet or TARGETS.md.
 ### Step 8: Deferred Cleanup
 
 Do NOT do the following in this PR. Create a separate future PR:
-- Delete the original `{name}.cpp` file
+- Delete the original `{name}.cpp` or `{name}.c` file
 - Optionally rename `{name}_shim.h` → `{name}.h`
 
-The cleanup PR should have title: `cleanup({name}): remove empty cpp after oxidation`
+The cleanup PR should have title: `cleanup({name}): remove empty cpp/c after oxidation`
 
 ## Output Artifacts
 - [ ] Branch rebased onto trunk within 1 hour of merge
@@ -88,6 +115,7 @@ The cleanup PR should have title: `cleanup({name}): remove empty cpp after oxida
 - [ ] Cleanup PR filed as a follow-up (not included in this PR)
 
 ## What NOT to Do
+- Do **not** push to or create PRs against upstream Mozilla or anyone else's fork.
 - Do **not** delete files in this PR.
 - Do **not** rename files in this PR.
 - Do **not** combine cleanup with the conversion.

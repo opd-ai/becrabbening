@@ -16,7 +16,10 @@
 #   status              Show the current Firefox submodule state
 #
 # Environment:
-#   FIREFOX_REPO        Git URL for Firefox (default: https://github.com/mozilla-firefox/firefox)
+#   FIREFOX_FORK        Git URL for the owner's Firefox fork — where PRs and
+#                       pushes go (REQUIRED for init; e.g. https://github.com/YOU/firefox)
+#   FIREFOX_UPSTREAM    Git URL for upstream Mozilla (default: https://github.com/mozilla-firefox/firefox)
+#                       Used as a read-only sync source — never push to this.
 #   FIREFOX_DIR         Submodule directory name (default: firefox)
 #   FIREFOX_BRANCH      Upstream branch to track (default: main)
 
@@ -24,9 +27,13 @@ set -euo pipefail
 
 # ─── Constants and defaults ──────────────────────────────────────────────────
 
-FIREFOX_REPO="${FIREFOX_REPO:-https://github.com/mozilla-firefox/firefox}"
+FIREFOX_UPSTREAM="${FIREFOX_UPSTREAM:-${FIREFOX_REPO:-https://github.com/mozilla-firefox/firefox}}"
+FIREFOX_FORK="${FIREFOX_FORK:-}"
 FIREFOX_DIR="${FIREFOX_DIR:-firefox}"
 FIREFOX_BRANCH="${FIREFOX_BRANCH:-main}"
+
+# Known upstream hosts that must never receive PRs or pushes.
+UPSTREAM_PATTERNS="github.com/mozilla-firefox/ github.com/nicola-nicola/ github.com/nicola/"
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 REPO_ROOT="$SCRIPT_DIR"
@@ -42,12 +49,40 @@ info() {
     echo "==> $*"
 }
 
+# Safety check: refuse to push or create PRs against upstream Mozilla or
+# any repo that is not the owner's fork.  Only the fork receives writes.
+assert_not_upstream() {
+    local url="$1"
+    local context="${2:-remote URL}"
+    for pattern in $UPSTREAM_PATTERNS; do
+        if echo "$url" | grep -qi "$pattern"; then
+            die "$context ($url) appears to be an upstream Mozilla repo.
+  PRs and pushes must target your own fork, not upstream.
+  Set FIREFOX_FORK to your fork URL (e.g. https://github.com/YOU/firefox)."
+        fi
+    done
+}
+
 # ─── Command: init ───────────────────────────────────────────────────────────
 
 cmd_init() {
     info "Initializing Firefox submodule"
 
     cd "$REPO_ROOT"
+
+    # Determine the clone URL.  Prefer the owner's fork; fall back to
+    # FIREFOX_UPSTREAM with a loud warning so the user knows PRs will
+    # not work until a fork is configured.
+    local clone_url="${FIREFOX_FORK:-}"
+    if [ -z "$clone_url" ]; then
+        echo "WARNING: FIREFOX_FORK is not set." >&2
+        echo "  The submodule will be cloned from upstream ($FIREFOX_UPSTREAM) as a" >&2
+        echo "  read-only working copy.  You will NOT be able to push or open PRs" >&2
+        echo "  until you set FIREFOX_FORK to your own fork URL." >&2
+        clone_url="$FIREFOX_UPSTREAM"
+    else
+        assert_not_upstream "$clone_url" "FIREFOX_FORK"
+    fi
 
     if [ -f ".gitmodules" ] && grep -q "$FIREFOX_DIR" .gitmodules 2>/dev/null; then
         info "Submodule entry already exists in .gitmodules."
@@ -63,10 +98,18 @@ cmd_init() {
             die "$FIREFOX_DIR directory already exists but is not a submodule. Remove it first."
         fi
 
-        info "Adding submodule: $FIREFOX_REPO -> $FIREFOX_DIR"
-        git submodule add --depth 1 --branch "$FIREFOX_BRANCH" "$FIREFOX_REPO" "$FIREFOX_DIR"
+        info "Adding submodule: $clone_url -> $FIREFOX_DIR"
+        git submodule add --depth 1 --branch "$FIREFOX_BRANCH" "$clone_url" "$FIREFOX_DIR"
         info "Submodule added. Commit the .gitmodules and $FIREFOX_DIR changes."
     fi
+
+    # Ensure upstream remote is set for read-only sync (separate from origin).
+    cd "$FIREFOX_DIR"
+    if ! git remote get-url upstream &>/dev/null; then
+        info "Adding upstream remote for read-only sync: $FIREFOX_UPSTREAM"
+        git remote add upstream "$FIREFOX_UPSTREAM"
+    fi
+    cd "$REPO_ROOT"
 
     info "Firefox submodule ready at $FIREFOX_DIR/"
 }
@@ -84,10 +127,10 @@ cmd_sync() {
 
     cd "$FIREFOX_DIR"
 
-    # Ensure upstream remote exists
+    # Ensure upstream remote exists (read-only sync source)
     if ! git remote get-url upstream &>/dev/null; then
-        info "Adding upstream remote: $FIREFOX_REPO"
-        git remote add upstream "$FIREFOX_REPO"
+        info "Adding upstream remote: $FIREFOX_UPSTREAM"
+        git remote add upstream "$FIREFOX_UPSTREAM"
     fi
 
     info "Fetching upstream $FIREFOX_BRANCH..."
@@ -313,7 +356,9 @@ case "$command" in
         echo "  status              Show the current Firefox submodule state"
         echo ""
         echo "Environment:"
-        echo "  FIREFOX_REPO        Git URL for Firefox"
+        echo "  FIREFOX_FORK        Git URL for your Firefox fork (required for push/PR)"
+        echo "                      (e.g. https://github.com/YOU/firefox)"
+        echo "  FIREFOX_UPSTREAM    Git URL for upstream Mozilla (read-only sync source)"
         echo "                      (default: https://github.com/mozilla-firefox/firefox)"
         echo "  FIREFOX_DIR         Submodule directory name (default: firefox)"
         echo "  FIREFOX_BRANCH      Upstream branch to track (default: main)"

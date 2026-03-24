@@ -11,7 +11,7 @@ Next: [02-PHASE-1-RUST.md](./02-PHASE-1-RUST.md) — Rust implementation.
 
 Before starting, verify all of the following:
 
-- [ ] No other open PR touches the target files (`{name}.h`, `{name}.cpp`)
+- [ ] No other open PR touches the target files (`{name}.h`, `{name}.cpp` or `{name}.c`)
 - [ ] Trunk (`origin/main`) is green — all CI checks pass
 - [ ] The file-pair is a leaf node in the dependency graph, **or** all of its dependents are already converted
 - [ ] The tracking spreadsheet (see [ROADMAP.md](./ROADMAP.md)) shows the file-pair as `Pending`
@@ -71,7 +71,7 @@ Record the snapshot in a scratch file (e.g., `/tmp/{name}-api-snapshot.txt`) for
 
 ### Step 4 — Write contract tests
 
-Create a test file (e.g., `test_{name}_contract.cpp`) that exercises every public symbol identified in Step 3. These tests must:
+Create a test file (e.g., `test_{name}_contract.cpp` for C++ sources, or `test_{name}_contract.c` for C sources) that exercises every public symbol identified in Step 3. These tests must:
 
 1. **Compile and pass before any changes** — run them now to verify
 2. **Continue to compile and pass after conversion** — they are your correctness proof
@@ -87,6 +87,10 @@ Test requirements:
 ```bash
 # Compile and run contract tests against the original C++ implementation
 g++ -std=c++17 test_{name}_contract.cpp {name}.cpp -o test_{name}_contract
+./test_{name}_contract
+
+# Or for C implementations:
+gcc -std=c11 test_{name}_contract.c {name}.c -o test_{name}_contract
 ./test_{name}_contract
 ```
 
@@ -106,12 +110,12 @@ Write a concise summary of the public API in a comment block at the top of your 
 
 ## Header-Only Variant
 
-For `.h`-only files (no corresponding `.cpp`), the same process applies with these adjustments:
+For `.h`-only files (no corresponding `.cpp` or `.c`), the same process applies with these adjustments:
 
 - There is no compiled object to inspect with `nm` — work from the header directly
 - Snapshot all type definitions, inline functions, macros, and constants
 - Contract tests may be compile-only (`static_assert`) for type-level guarantees
-- There is no `.cpp` to empty out in Phase 4 — only the `.h` will be modified
+- There is no `.cpp`/`.c` to empty out in Phase 4 — only the `.h` will be modified
 
 ---
 
@@ -127,7 +131,7 @@ For `.h`-only files (no corresponding `.cpp`), the same process applies with the
 At the end of Phase 0, you should have:
 
 - [ ] Branch `oxidize/{name}` created from a green trunk
-- [ ] Contract tests written (`test_{name}_contract.cpp`) and passing
+- [ ] Contract tests written (`test_{name}_contract.cpp` or `test_{name}_contract.c`) and passing
 - [ ] API surface documented (in a comment in the test file)
 
 ---

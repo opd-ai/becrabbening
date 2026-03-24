@@ -9,12 +9,26 @@ Next: Return to [01-PHASE-0-PREPARE.md](./01-PHASE-0-PREPARE.md) for the next fi
 
 ## Step-by-Step Instructions
 
+> ⚠️ **Fork-Only Rule:** PRs and pushes must **only** target your own Firefox
+> fork — never Mozilla's upstream repository or anyone else's fork.
+> Verify that `origin` points to your fork before pushing:
+> ```bash
+> cd firefox && git remote get-url origin
+> ```
+> If it shows a `mozilla` URL, reconfigure with `FIREFOX_FORK` (see [USAGE.md](./USAGE.md)).
+
 ### Step 1 — PR title convention
 
 Use this exact format for the PR title:
 
 ```
 oxidize({name}): replace {name}.cpp with Rust + C shim
+```
+
+For C source conversions:
+
+```
+oxidize({name}): replace {name}.c with Rust + C shim
 ```
 
 For header-only conversions:
@@ -81,10 +95,10 @@ This tag is used by the conflict gate in Phase 0 of future iterations to verify 
 
 **Do NOT** do the following in this PR. Create a separate, future PR for cleanup:
 
-- Delete the original `{name}.cpp` file (it is now empty but kept for build-system compatibility)
+- Delete the original `{name}.cpp` or `{name}.c` file (it is now empty but kept for build-system compatibility)
 - Optionally rename `{name}_shim.h` → `{name}.h` if the shim name is awkward
 
-The cleanup PR should have title: `cleanup({name}): remove empty cpp after oxidation`
+The cleanup PR should have title: `cleanup({name}): remove empty cpp/c after oxidation`
 
 ---
 

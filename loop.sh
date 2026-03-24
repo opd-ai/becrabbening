@@ -108,6 +108,23 @@ PROMPT_DIR="$(cd "$PROMPT_DIR" && pwd)"
 if [ -d "$FIREFOX_DIR/.git" ] || [ -f "$FIREFOX_DIR/.git" ]; then
     FIREFOX_DIR="$(cd "$FIREFOX_DIR" && pwd)"
     log_and_print "Firefox submodule: $FIREFOX_DIR"
+
+    # Safety check: warn if origin points to an upstream Mozilla repo.
+    # PRs and pushes must only target the owner's own fork.
+    _origin_url=""
+    if [ -d "$FIREFOX_DIR" ]; then
+        _origin_url="$(cd "$FIREFOX_DIR" && git remote get-url origin 2>/dev/null)" || true
+    fi
+    if echo "$_origin_url" | grep -qi 'github\.com/mozilla'; then
+        echo "" >&2
+        echo "WARNING: Firefox submodule origin points to an upstream Mozilla repo:" >&2
+        echo "  $_origin_url" >&2
+        echo "" >&2
+        echo "PRs and pushes must only target your own fork — never upstream." >&2
+        echo "Set FIREFOX_FORK and re-run 'bash firefox-sync.sh init' to fix this." >&2
+        echo "" >&2
+    fi
+    unset _origin_url
 else
     echo "WARNING: Firefox submodule not found at $FIREFOX_DIR." >&2
     echo "Run 'bash firefox-sync.sh init' to set up the Firefox submodule." >&2

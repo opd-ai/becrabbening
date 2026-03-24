@@ -1,6 +1,6 @@
 # Usage Guide
 
-How to run the becrabbening loop — the automated pipeline that converts Firefox C++ file-pairs to Rust one at a time.
+How to run the becrabbening loop — the automated pipeline that converts Firefox C/C++ file-pairs to Rust one at a time.
 
 ---
 
@@ -20,13 +20,19 @@ Install these tools before starting:
 
 ---
 
-## Step 1 — Set up the Firefox submodule
+## Step 1 — Fork Firefox and set up the submodule
+
+> ⚠️ **Fork-Only Rule:** All work, PRs, and pushes must target your own Firefox
+> fork — never upstream Mozilla. See [08-CONFLICT-AVOIDANCE.md](./08-CONFLICT-AVOIDANCE.md#rule-8-fork-only-prs).
+
+First, [fork](https://docs.github.com/en/get-started/quickstart/fork-a-repo) the Firefox repository on GitHub. Then set `FIREFOX_FORK` to your fork's URL:
 
 ```bash
+export FIREFOX_FORK=https://github.com/YOUR_USERNAME/firefox
 bash firefox-sync.sh init
 ```
 
-This clones Firefox as a shallow git submodule into `firefox/`. Only needed once.
+This clones your fork as a submodule into `firefox/` and adds upstream Mozilla as a read-only remote for syncing. Only needed once.
 
 ---
 
@@ -36,7 +42,7 @@ This clones Firefox as a shallow git submodule into `firefox/`. Only needed once
 bash generate-targets.sh
 ```
 
-This scans the Firefox source tree, builds a dependency graph, identifies leaf-node C++ file-pairs, and writes `TARGETS.md`.
+This scans the Firefox source tree, builds a dependency graph, identifies leaf-node C/C++ file-pairs, and writes `TARGETS.md`.
 
 Review `TARGETS.md` before continuing — remove or reorder entries as needed.
 
@@ -104,7 +110,8 @@ bash firefox-sync.sh status    # show submodule state, branches, tags
 ## End-to-end example
 
 ```bash
-# First-time setup
+# First-time setup (fork Firefox on GitHub first!)
+export FIREFOX_FORK=https://github.com/YOUR_USERNAME/firefox
 bash firefox-sync.sh init
 
 # Generate targets
