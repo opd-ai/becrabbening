@@ -200,7 +200,7 @@ while IFS= read -r header; do
 
     # Count public API symbols as a proxy for API surface size
     # Match class/struct/enum declarations and function-like declarations
-    api_size=$(grep -cE '^[[:space:]]*(class[[:space:]]|struct[[:space:]]|enum[[:space:]]|typedef[[:space:]]|using[[:space:]]|inline[[:space:]]|constexpr[[:space:]]|#define[[:space:]])' "$header" 2>/dev/null || echo "0")
+    api_size=$(grep -cE '^[[:space:]]*(class[[:space:]]|struct[[:space:]]|enum[[:space:]]|typedef[[:space:]]|using[[:space:]]|inline[[:space:]]|constexpr[[:space:]]|#define[[:space:]])' "$header" 2>/dev/null || true)
 
     # Record: api_size target_name header_path src_ext
     echo "$api_size $target_name $header $src_ext" >> "$CANDIDATES"
@@ -405,6 +405,11 @@ target_count=0
         fi
 
         target_name="$(echo "$line" | awk '{print $2}')"
+
+        # Skip malformed entries with no target name
+        if [ -z "$target_name" ]; then
+            continue
+        fi
 
         echo "- [ ] $target_name"
         target_count=$((target_count + 1))
