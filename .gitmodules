@@ -1,0 +1,4 @@
+[submodule "firefox"]
+	path = firefox
+	url = https://github.com/opd-ai/firefox
+	branch = main
