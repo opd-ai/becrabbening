@@ -1,6 +1,6 @@
 # Usage Guide
 
-How to run the becrabbening loop — the automated pipeline that converts Firefox C++ file-pairs to Rust one at a time.
+How to run the becrabbening loop — the automated pipeline that converts Firefox C/C++ file-pairs to Rust one at a time.
 
 ---
 
@@ -16,17 +16,23 @@ Install these tools before starting:
 | **gcc** | Validate generated C headers |
 | **g++** | Validate C++ shim headers |
 | **copilot** | GitHub Copilot CLI — runs the AI-driven phase prompts |
-| **gh** *(optional)* | GitHub CLI — enables the open-PR conflict gate |
+| **gh** | GitHub CLI — creates and auto-merges PRs in Phase 6; also enables the open-PR conflict gate |
 
 ---
 
-## Step 1 — Set up the Firefox submodule
+## Step 1 — Fork Firefox and set up the submodule
+
+> ⚠️ **Fork-Only Rule:** All work, PRs, and pushes must target your own Firefox
+> fork — never upstream Mozilla. See [08-CONFLICT-AVOIDANCE.md](./08-CONFLICT-AVOIDANCE.md#rule-8-fork-only-prs).
+
+First, [fork](https://docs.github.com/en/get-started/quickstart/fork-a-repo) the Firefox repository on GitHub. Then set `FIREFOX_FORK` to your fork's URL:
 
 ```bash
+export FIREFOX_FORK=https://github.com/YOUR_USERNAME/firefox
 bash firefox-sync.sh init
 ```
 
-This clones Firefox as a shallow git submodule into `firefox/`. Only needed once.
+This clones your fork as a submodule into `firefox/` and adds upstream Mozilla as a read-only remote for syncing. Only needed once.
 
 ---
 
@@ -36,7 +42,7 @@ This clones Firefox as a shallow git submodule into `firefox/`. Only needed once
 bash generate-targets.sh
 ```
 
-This scans the Firefox source tree, builds a dependency graph, identifies leaf-node C++ file-pairs, and writes `TARGETS.md`.
+This scans the Firefox source tree, builds a dependency graph, identifies leaf-node C/C++ file-pairs, and writes `TARGETS.md`.
 
 Review `TARGETS.md` before continuing — remove or reorder entries as needed.
 
@@ -68,7 +74,7 @@ The loop reads `TARGETS.md` and processes each unchecked target through Phases 0
 | 3 | `CPP_SHIM.md` | Build C++ shim with identical API |
 | 4 | `SWITCHOVER.md` | Redirect original files to the shim |
 | 5 | `VALIDATE.md` | Run all tests, verify ABI compatibility |
-| 6 | `MERGE.md` | Create PR, merge, tag |
+| 6 | `MERGE.md` | Create PR, auto-merge, tag |
 
 After each of Phases 1–3 and 5, and the anti-slop audit, the script runs automated validation (cargo test, gcc/g++ syntax checks, contract tests). If validation fails, it delegates `FAIL.md` for a fix attempt, then re-validates. If the fix doesn't work, the target is skipped and left unchecked in `TARGETS.md` for retry.
 
@@ -104,7 +110,8 @@ bash firefox-sync.sh status    # show submodule state, branches, tags
 ## End-to-end example
 
 ```bash
-# First-time setup
+# First-time setup (fork Firefox on GitHub first!)
+export FIREFOX_FORK=https://github.com/YOUR_USERNAME/firefox
 bash firefox-sync.sh init
 
 # Generate targets

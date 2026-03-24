@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # generate-targets.sh — Scan a Firefox source tree and generate the next TARGETS.md
 #
-# Analyzes #include dependencies to identify leaf-node C++ file-pairs
+# Analyzes #include dependencies to identify leaf-node C/C++ file-pairs
 # eligible for oxidation, following the becrabbening's leaf-first
 # topological ordering strategy.
 #
@@ -19,7 +19,7 @@
 #   SKIP_PR_CHECK   Set to 1 to skip the open-PR conflict gate check
 #
 # The script:
-#   1. Finds all C++ file-pairs (.cpp+.h or .h-only)
+#   1. Finds all C/C++ file-pairs (.c+.h, .cpp+.h, or .h-only)
 #   2. Excludes already-converted files (contain only #include redirect)
 #   3. Builds the #include dependency graph
 #   4. Identifies leaf nodes (no unconverted dependents)
@@ -78,6 +78,7 @@ WORK_DIR="$(mktemp -d)"
 
 ALL_HEADERS="$WORK_DIR/all-headers.txt"
 ALL_CPPS="$WORK_DIR/all-cpps.txt"
+ALL_CS="$WORK_DIR/all-cs.txt"
 CONVERTED="$WORK_DIR/converted.txt"
 CANDIDATES="$WORK_DIR/candidates.txt"
 DEPGRAPH="$WORK_DIR/depgraph.txt"
@@ -85,9 +86,9 @@ LEAF_NODES="$WORK_DIR/leaf-nodes.txt"
 RANKED="$WORK_DIR/ranked.txt"
 EXISTING_DONE="$WORK_DIR/existing-done.txt"
 
-# ─── Step 1: Find all C++ headers and source files ──────────────────────────
+# ─── Step 1: Find all C/C++ headers and source files ──────────────────────────
 
-echo "--- Step 1: Scanning for C++ files ---"
+echo "--- Step 1: Scanning for C/C++ files ---"
 
 find "$SOURCE_DIR" -type f -name '*.h' \
     ! -path '*/.git/*' \
@@ -107,9 +108,18 @@ find "$SOURCE_DIR" -type f -name '*.cpp' \
     ! -path '*/tests/*' \
     | sort > "$ALL_CPPS"
 
+find "$SOURCE_DIR" -type f -name '*.c' \
+    ! -path '*/.git/*' \
+    ! -path '*/node_modules/*' \
+    ! -path '*/third_party/*' \
+    ! -path '*/test/*' \
+    ! -path '*/tests/*' \
+    | sort > "$ALL_CS"
+
 header_count=$(wc -l < "$ALL_HEADERS")
 cpp_count=$(wc -l < "$ALL_CPPS")
-echo "  Found $header_count headers and $cpp_count source files."
+c_count=$(wc -l < "$ALL_CS")
+echo "  Found $header_count headers, $cpp_count C++ source files, and $c_count C source files."
 
 # ─── Step 2: Identify already-converted files ───────────────────────────────
 
@@ -170,10 +180,13 @@ while IFS= read -r header; do
     basename_h="$(basename "$header" .h)"
     dir_h="$(dirname "$header")"
 
-    # Check if there's a corresponding .cpp
-    has_cpp=0
+    # Check if there's a corresponding .cpp or .c source file.
+    # Prefer .cpp if both exist (C++ takes precedence).
+    src_ext="none"
     if [ -f "$dir_h/$basename_h.cpp" ]; then
-        has_cpp=1
+        src_ext="cpp"
+    elif [ -f "$dir_h/$basename_h.c" ]; then
+        src_ext="c"
     fi
 
     # Derive the target name from the basename
@@ -189,8 +202,8 @@ while IFS= read -r header; do
     # Match class/struct/enum declarations and function-like declarations
     api_size=$(grep -cE '^[[:space:]]*(class[[:space:]]|struct[[:space:]]|enum[[:space:]]|typedef[[:space:]]|using[[:space:]]|inline[[:space:]]|constexpr[[:space:]]|#define[[:space:]])' "$header" 2>/dev/null || echo "0")
 
-    # Record: api_size target_name header_path has_cpp
-    echo "$api_size $target_name $header $has_cpp" >> "$CANDIDATES"
+    # Record: api_size target_name header_path src_ext
+    echo "$api_size $target_name $header $src_ext" >> "$CANDIDATES"
 
 done < "$ALL_HEADERS"
 
@@ -199,7 +212,7 @@ echo "  Found $candidate_count unconverted candidate file-pairs."
 
 if [ "$candidate_count" -eq 0 ]; then
     echo ""
-    echo "No unconverted C++ file-pairs found. Firefox is fully carcinized! 🦀"
+    echo "No unconverted C/C++ file-pairs found. Firefox is fully carcinized! 🦀"
     # Write an empty TARGETS.md
     {
         echo "# Conversion Targets"
@@ -236,7 +249,7 @@ done < "$CANDIDATES"
 while IFS= read -r line; do
     includer_target="$(echo "$line" | awk '{print $2}')"
     header_path="$(echo "$line" | awk '{print $3}')"
-    has_cpp="$(echo "$line" | awk '{print $4}')"
+    src_ext="$(echo "$line" | awk '{print $4}')"
 
     # Helper: scan a single source file for #include basenames
     scan_includes() {
@@ -256,11 +269,11 @@ while IFS= read -r line; do
     # Scan the header file
     scan_includes "$header_path"
 
-    # Scan the .cpp file if it exists
-    if [ "$has_cpp" = "1" ]; then
+    # Scan the source file (.cpp or .c) if it exists
+    if [ "$src_ext" != "none" ]; then
         header_dir="$(dirname "$header_path")"
-        cpp_path="$header_dir/$(basename "$header_path" .h).cpp"
-        scan_includes "$cpp_path"
+        src_path="$header_dir/$(basename "$header_path" .h).$src_ext"
+        scan_includes "$src_path"
     fi
 done < "$CANDIDATES"
 
@@ -333,7 +346,7 @@ if [ "$SKIP_PR_CHECK" != "1" ] && command -v gh &>/dev/null; then
             target_name="$(echo "$line" | awk '{print $2}')"
 
             # Check if any open PR touches this file (exact basename match)
-            pr_hits=$(grep -cE "(^|/)${target_name}\.(h|cpp)$" "$PR_FILES" || true)
+            pr_hits=$(grep -cE "(^|/)${target_name}\.(h|c|cpp)$" "$PR_FILES" || true)
 
             if [ "$pr_hits" -gt 0 ]; then
                 echo "  SKIP: $target_name — open PR touches this file"

@@ -36,7 +36,7 @@ If the original used a traditional include guard instead of `#pragma once`, pres
 #endif  // {NAME}_H
 ```
 
-### Step 2 — Edit the original `{name}.cpp`
+### Step 2 — Edit the original `{name}.cpp` or `{name}.c`
 
 Gut the entire body of the source file. Replace with just a comment and a single include:
 
@@ -47,7 +47,7 @@ Gut the entire body of the source file. Replace with just a comment and a single
 
 The resulting diff should show: **many deletions, 2 additions**.
 
-The `.cpp` file is kept (not deleted) to preserve build-system compatibility — the build system already knows about this file. Deleting it is deferred to the cleanup PR.
+The `.cpp`/`.c` file is kept (not deleted) to preserve build-system compatibility — the build system already knows about this file. Deleting it is deferred to the cleanup PR.
 
 ### Step 3 — Update `moz.build`
 
@@ -70,7 +70,7 @@ git diff --stat
 
 # Expected:
 # {name}.h     | 80 deletions, 2 insertions
-# {name}.cpp   | 40 deletions, 2 insertions
+# {name}.cpp   | 40 deletions, 2 insertions   (or {name}.c for C sources)
 # moz.build    | 0 deletions, 3 insertions
 ```
 
@@ -81,7 +81,7 @@ If the diff is larger than expected, review whether the shim is complete and cor
 All three file edits must be in a **single commit**:
 
 ```bash
-git add {name}.h {name}.cpp moz.build
+git add {name}.h {name}.cpp moz.build   # or {name}.c instead of {name}.cpp
 git commit -m "oxidize({name}): switchover to Rust implementation via shim"
 ```
 
@@ -107,7 +107,7 @@ See [08-CONFLICT-AVOIDANCE.md](./08-CONFLICT-AVOIDANCE.md) for the full explanat
 
 - **Do not delete the old files** in this PR. File deletion is deferred to a separate cleanup PR after merge. Deleting files causes unnecessary conflict risk.
 - **Do not rename files.** Renames are the most conflict-prone git operation. Deferred.
-- **Do not change any files other than `{name}.h`, `{name}.cpp`, and `moz.build`** in this commit.
+- **Do not change any files other than `{name}.h`, `{name}.cpp`/`{name}.c`, and `moz.build`** in this commit.
 - Do not put Phase 4 edits and Phase 3 shim additions in the same commit — keep them as separate commits for bisectability.
 
 ---
@@ -117,7 +117,7 @@ See [08-CONFLICT-AVOIDANCE.md](./08-CONFLICT-AVOIDANCE.md) for the full explanat
 At the end of Phase 4, you should have:
 
 - [ ] `{name}.h` modified: now contains only `#include "{name}_shim.h"` (plus include guard)
-- [ ] `{name}.cpp` modified: now contains only `#include "{name}.h"` (plus a comment)
+- [ ] `{name}.cpp` or `{name}.c` modified: now contains only `#include "{name}.h"` (plus a comment)
 - [ ] `moz.build` updated: Rust crate and shim added (< 5 line diff)
 - [ ] All three changes in a single atomic commit
 

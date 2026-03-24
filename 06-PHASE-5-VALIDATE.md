@@ -14,8 +14,12 @@ Next: [07-PHASE-6-MERGE.md](./07-PHASE-6-MERGE.md) — merge and clean up.
 Run the contract tests written in Phase 0. These tests must pass **without modification** — you must not change the tests to make them pass.
 
 ```bash
-# Compile and run against the new Rust-backed implementation
+# Compile and run against the new Rust-backed implementation (C++)
 g++ -std=c++17 test_{name}_contract.cpp {name}.cpp -o test_{name}_contract
+./test_{name}_contract
+
+# Or for C sources:
+gcc -std=c11 test_{name}_contract.c {name}.c -o test_{name}_contract
 ./test_{name}_contract
 ```
 
@@ -74,7 +78,7 @@ For header-only conversions, verify that all files that include `{name}.h` still
 
 ```bash
 # Find all includers
-grep -r '#include.*{name}.h' . --include='*.cpp' --include='*.h'
+grep -r '#include.*{name}.h' . --include='*.cpp' --include='*.c' --include='*.h'
 
 # Build them
 ./mach build path/to/each/includer.cpp

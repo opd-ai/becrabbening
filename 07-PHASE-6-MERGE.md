@@ -1,6 +1,6 @@
-# Phase 6 — Merge & Clean Up
+# Phase 6 — Create PR, Auto-Merge & Clean Up
 
-**Goal:** Safely land the PR and prepare for the next iteration.
+**Goal:** Create a PR for the conversion, immediately merge it (preserving the PR record), tag the conversion, and prepare for the next iteration.
 
 Previous: [06-PHASE-5-VALIDATE.md](./06-PHASE-5-VALIDATE.md) — validation.
 Next: Return to [01-PHASE-0-PREPARE.md](./01-PHASE-0-PREPARE.md) for the next file-pair.
@@ -9,12 +9,26 @@ Next: Return to [01-PHASE-0-PREPARE.md](./01-PHASE-0-PREPARE.md) for the next fi
 
 ## Step-by-Step Instructions
 
+> ⚠️ **Fork-Only Rule:** PRs and pushes must **only** target your own Firefox
+> fork — never Mozilla's upstream repository or anyone else's fork.
+> Verify that `origin` points to your fork before pushing:
+> ```bash
+> cd firefox && git remote get-url origin
+> ```
+> If it shows a `mozilla` URL, reconfigure with `FIREFOX_FORK` (see [USAGE.md](./USAGE.md)).
+
 ### Step 1 — PR title convention
 
 Use this exact format for the PR title:
 
 ```
 oxidize({name}): replace {name}.cpp with Rust + C shim
+```
+
+For C source conversions:
+
+```
+oxidize({name}): replace {name}.c with Rust + C shim
 ```
 
 For header-only conversions:
@@ -27,26 +41,9 @@ oxidize({name}): replace {name}.h with Rust + C shim
 
 Copy the checklist from [09-CHECKLIST-TEMPLATE.md](./09-CHECKLIST-TEMPLATE.md) into the PR description. Fill in `{name}` with the component name. Check off each item as you verify it.
 
-### Step 3 — Rebase before requesting review
+### Step 3 — Rebase and push
 
-Rebase onto trunk immediately before requesting review:
-
-```bash
-git fetch origin
-git rebase origin/main --autostash
-```
-
-Push the rebased branch:
-
-```bash
-git push --force-with-lease origin oxidize/{name}
-```
-
-Verify the CI passes on the rebased branch before requesting review.
-
-### Step 4 — Rebase again immediately before merge
-
-Rebase again within 1 hour of merging:
+Rebase onto trunk and push the branch:
 
 ```bash
 git fetch origin
@@ -54,9 +51,32 @@ git rebase origin/main --autostash
 git push --force-with-lease origin oxidize/{name}
 ```
 
-This minimizes the window during which trunk can diverge and cause a conflict. See [08-CONFLICT-AVOIDANCE.md](./08-CONFLICT-AVOIDANCE.md) for the rebase window rules.
+### Step 4 — Create PR and immediately merge
 
-### Step 5 — Merge using fast-forward only
+Create the PR via `gh` CLI and merge it immediately. This is an automated pipeline — PRs are **not subject to human review**. They are created to preserve a record of each conversion, then merged immediately.
+
+```bash
+# Create the PR
+gh pr create \
+    --base main \
+    --head "oxidize/{name}" \
+    --title "oxidize({name}): replace {name}.cpp with Rust + C shim" \
+    --body-file /tmp/{name}-pr-body.md
+
+# Immediately merge — no human review required
+gh pr merge "oxidize/{name}" \
+    --merge \
+    --delete-branch=false \
+    --admin
+```
+
+**Why immediate merge?** The conversion has already been validated in Phase 5. The PR exists purely as a record of the change — the full checklist, the branch history, and the merge event are all preserved for traceability. Human review would slow down the automated pipeline without adding value, since all quality gates (contract tests, cargo test, clippy, ABI verification) were already enforced.
+
+**Why `--delete-branch=false`?** The `oxidize/{name}` branch is preserved so the PR record remains browsable and the branch can be referenced by the `oxidized/{name}` tag.
+
+**Why `--admin`?** Bypasses any branch protection rules on the fork, since this is our own automated work on our own fork.
+
+**Fallback — local fast-forward merge:** If `gh pr merge` fails (e.g., the `gh` CLI is unavailable or branch protection cannot be bypassed), fall back to a local merge:
 
 ```bash
 git checkout main
@@ -64,9 +84,9 @@ git merge --ff-only oxidize/{name}
 git push origin main
 ```
 
-No merge commits. The commit history should be linear. If `--ff-only` fails, rebase again (Step 4) and retry.
+No merge commits. The commit history should be linear. If `--ff-only` fails, rebase again (Step 3) and retry.
 
-### Step 6 — Tag after merge
+### Step 5 — Tag after merge
 
 After the merge lands on trunk, tag the conversion:
 
@@ -77,14 +97,29 @@ git push origin oxidized/{name}
 
 This tag is used by the conflict gate in Phase 0 of future iterations to verify that a prerequisite conversion is complete.
 
-### Step 7 — Deferred cleanup (separate PR)
+### Step 6 — Deferred cleanup (separate PR)
 
 **Do NOT** do the following in this PR. Create a separate, future PR for cleanup:
 
-- Delete the original `{name}.cpp` file (it is now empty but kept for build-system compatibility)
+- Delete the original `{name}.cpp` or `{name}.c` file (it is now empty but kept for build-system compatibility)
 - Optionally rename `{name}_shim.h` → `{name}.h` if the shim name is awkward
 
-The cleanup PR should have title: `cleanup({name}): remove empty cpp after oxidation`
+The cleanup PR should have title: `cleanup({name}): remove empty cpp/c after oxidation`
+
+---
+
+## Why PRs Are Auto-Merged
+
+Every conversion is fully validated before Phase 6:
+
+1. **Phase 0** — contract tests verify the public API.
+2. **Phase 1** — `cargo test` and `cargo clippy` verify the Rust implementation.
+3. **Anti-slop audit** — pedantic linting catches AI-generated code smells.
+4. **Phase 2** — `gcc -xc -fsyntax-only` verifies the C FFI header.
+5. **Phase 3** — `g++ -xc++ -fsyntax-only` verifies the C++ shim compiles.
+6. **Phase 5** — full validation suite: contract tests, ABI symbol diff, `mach build`, `mach test`.
+
+By Phase 6, all quality gates have passed. The PR is created for **traceability** (searchable history, linked branch, checklist record), not for review. Immediate merge keeps the pipeline moving without blocking on human availability.
 
 ---
 

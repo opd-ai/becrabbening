@@ -1,7 +1,10 @@
-# TASK: Build a C++ shim wrapper that presents the exact same API as the original header, delegating all calls to the C FFI layer.
+# TASK: Build a C/C++ shim wrapper that presents the exact same API as the original header, delegating all calls to the C FFI layer.
 
 ## Execution Mode
-**Autonomous action** — create the C++ shim header, verify it compiles and matches the original API, then stop.
+**Autonomous action** — create the C/C++ shim header, verify it compiles and matches the original API, then stop.
+
+For C++ source files (`.cpp` + `.h`), build a C++ shim with class wrappers.
+For C source files (`.c` + `.h`), build a pure C shim with function-level wrappers.
 
 This prompt operates on a **Firefox source tree**. The target file-pair name is provided above.
 
@@ -11,7 +14,7 @@ Read the becrabbening documentation:
 - [examples/nsfoo/nsfoo_shim.h](./examples/nsfoo/nsfoo_shim.h) — complete worked example
 - [00-OVERVIEW.md](./00-OVERVIEW.md) — three-layer sandwich architecture
 
-## Workflow
+## Workflow (C++ Source Files)
 
 ### Step 1: Create `{name}_shim.h`
 
@@ -128,4 +131,38 @@ Before completing, verify:
 ## What NOT to Do
 - Do **not** change the public API surface.
 - Do **not** add new public methods not in the original.
-- Do **not** modify existing C++ files. This phase is still additive.
+- Do **not** modify existing C/C++ files. This phase is still additive.
+
+---
+
+## Workflow (C Source Files)
+
+When the original source is a `.c` file, build a **pure C shim** instead.
+
+### Step 1: Create `{name}_shim.h` (C variant)
+
+Start with the include guard and a direct (non-`extern "C"`) FFI include:
+
+```c
+#pragma once
+
+#include "{name}_ffi.h"
+```
+
+### Step 2: Re-create Every Function and Type
+
+For every function, struct, enum, constant, and type alias from the original `{name}.h`, create an equivalent with **identical signatures**. Each function body delegates to the corresponding `fox_{name}_*()` function:
+
+```c
+static inline int {name}_bar(struct {Name}* obj, int x) {
+    return fox_{name}_bar(obj, x);
+}
+```
+
+### Step 3: Verify Compilation as C
+
+```bash
+gcc -xc -fsyntax-only {name}_shim.h
+```
+
+Must succeed with no errors and no warnings.

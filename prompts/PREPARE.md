@@ -16,12 +16,12 @@ Read the becrabbening documentation to understand the full workflow:
 
 ### Phase 0: Identify the Target
 1. Read `CURRENT_TARGET.md` or the target name provided at the top of this prompt. This is `{name}` for all subsequent steps.
-2. Locate `{name}.h` and `{name}.cpp` in the source tree.
+2. Locate `{name}.h` and `{name}.cpp` (or `{name}.c`) in the source tree.
 3. If only `{name}.h` exists (header-only), note this for later phases.
 
 ### Phase 1: Prerequisites Check
 Verify all of the following before proceeding:
-1. No other open PR touches `{name}.h` or `{name}.cpp`.
+1. No other open PR touches `{name}.h`, `{name}.cpp`, or `{name}.c`.
 2. Trunk (`origin/main`) is green — CI passes.
 3. The file-pair is a leaf node in the dependency graph, or all its dependents are already converted.
 
@@ -50,7 +50,7 @@ grep -E '^\s*(class|struct|enum|typedef|using|inline|constexpr|#define)' {name}.
 Record the snapshot in a scratch directory (e.g., `.scratch/{name}-api-snapshot.txt`). Add `.scratch/` to `.gitignore`. Do **not** commit this file.
 
 ### Phase 4: Write Contract Tests
-Create `test_{name}_contract.cpp` that exercises every public symbol from Phase 3:
+Create `test_{name}_contract.cpp` (for C++ sources) or `test_{name}_contract.c` (for C sources) that exercises every public symbol from Phase 3:
 1. Instantiate every class.
 2. Call every public method with representative inputs.
 3. Verify return values for normal cases.
@@ -59,7 +59,12 @@ Create `test_{name}_contract.cpp` that exercises every public symbol from Phase 
 Test only the **public API contract**, not implementation details.
 
 ```bash
+# For C++ sources:
 g++ -std=c++17 test_{name}_contract.cpp {name}.cpp -o test_{name}_contract
+./test_{name}_contract
+
+# For C sources:
+gcc -std=c11 test_{name}_contract.c {name}.c -o test_{name}_contract
 ./test_{name}_contract
 ```
 
@@ -78,7 +83,7 @@ Write a concise API summary as a comment block at the top of the contract test f
 ## Output Artifacts
 At the end of this task, you should have:
 - [ ] Branch `oxidize/{name}` created from a green trunk
-- [ ] Contract tests written (`test_{name}_contract.cpp`) and passing
+- [ ] Contract tests written (`test_{name}_contract.cpp` or `test_{name}_contract.c`) and passing
 - [ ] API surface documented (in a comment in the test file)
 
 ## What NOT to Do

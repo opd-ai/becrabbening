@@ -1,13 +1,15 @@
-# Phase 3 — C++ Shim
+# Phase 3 — C/C++ Shim
 
-**Goal:** Build a C++ wrapper that presents the **exact same API** as the original header, delegating all calls to the C FFI layer.
+**Goal:** Build a C/C++ wrapper that presents the **exact same API** as the original header, delegating all calls to the C FFI layer.
+
+For C++ source files (`.cpp` + `.h`), the shim is a C++ header with class wrappers. For C source files (`.c` + `.h`), the shim is a pure C header with function-level wrappers.
 
 Previous: [03-PHASE-2-C-FFI.md](./03-PHASE-2-C-FFI.md) — C FFI header.
 Next: [05-PHASE-4-SWITCHOVER.md](./05-PHASE-4-SWITCHOVER.md) — Switchover.
 
 ---
 
-## Step-by-Step Instructions
+## Step-by-Step Instructions (C++ Source Files)
 
 ### Step 1 — Create `{name}_shim.h`
 
@@ -147,7 +149,41 @@ When the original C++ API uses types that don't cross the C FFI boundary directl
 
 - **Do not change the public API surface.** The shim must be a drop-in replacement for the original header.
 - **Do not add new public methods** that were not in the original.
-- **Do not modify existing C++ files** — this phase is still additive.
+- **Do not modify existing C/C++ files** — this phase is still additive.
+
+---
+
+## C Source File Variant
+
+When the original source is a `.c` file (not `.cpp`), build a **C shim** instead of a C++ shim. The C shim is a pure C header that wraps FFI calls to match the original C API.
+
+### Step 1 — Create `{name}_shim.h` (C variant)
+
+```c
+#pragma once
+
+#include "{name}_ffi.h"
+```
+
+No `extern "C"` wrapper is needed — the FFI header is already pure C.
+
+### Step 2 — Re-create every function and type
+
+For every function, struct, enum, constant, and type alias from the original `{name}.h`, create an equivalent in the shim with **identical signatures**. Each function body should delegate to the corresponding `fox_{name}_*()` function:
+
+```c
+static inline int {name}_bar(struct {Name}* obj, int x) {
+    return fox_{name}_bar(obj, x);
+}
+```
+
+### Step 3 — Verify the shim compiles as C
+
+```bash
+gcc -xc -fsyntax-only {name}_shim.h
+```
+
+This must succeed with no errors and no warnings.
 
 ---
 

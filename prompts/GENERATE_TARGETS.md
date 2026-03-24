@@ -16,7 +16,7 @@ Read the becrabbening documentation to understand target selection:
 ## Workflow
 
 ### Phase 0: Understand the Dependency Graph
-1. Scan the source tree for all C++ file-pairs (`.cpp` + `.h`, or `.h`-only).
+1. Scan the source tree for all C/C++ file-pairs (`.c` + `.h`, `.cpp` + `.h`, or `.h`-only).
 2. Exclude third-party code, test files, and already-converted files.
 3. A file is "already converted" if its `.h` contains only a `#include` redirect to a `*_shim.h` file (Phase 4 switchover has been applied).
 

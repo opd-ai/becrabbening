@@ -1,7 +1,7 @@
 # TASK: Perform the minimal atomic edit to existing files that redirects them to the Rust-backed shim.
 
 ## Execution Mode
-**Autonomous action** — edit the original `.h` and `.cpp`, update `moz.build`, verify diff sizes, create a single atomic commit, then stop.
+**Autonomous action** — edit the original `.h` and `.cpp`/`.c`, update `moz.build`, verify diff sizes, create a single atomic commit, then stop.
 
 This prompt operates on a **Firefox source tree**. The target file-pair name is provided above.
 
@@ -35,7 +35,7 @@ If the original used a traditional include guard, preserve that style:
 
 The resulting diff should show: **many deletions, 1–2 additions**.
 
-### Step 2: Edit `{name}.cpp`
+### Step 2: Edit `{name}.cpp` or `{name}.c`
 
 Replace the **entire** file contents with a comment and a single include:
 
@@ -46,7 +46,7 @@ Replace the **entire** file contents with a comment and a single include:
 
 The resulting diff should show: **many deletions, 2 additions**.
 
-The `.cpp` is kept (not deleted) to preserve build-system compatibility. Deletion is deferred to a cleanup PR.
+The `.cpp`/`.c` is kept (not deleted) to preserve build-system compatibility. Deletion is deferred to a cleanup PR.
 
 ### Step 3: Update `moz.build`
 
@@ -84,12 +84,12 @@ Never split Phase 4 edits across multiple commits.
 
 ## Output Artifacts
 - [ ] `{name}.h` modified: contains only `#include "{name}_shim.h"` (plus include guard)
-- [ ] `{name}.cpp` modified: contains only `#include "{name}.h"` (plus comment)
+- [ ] `{name}.cpp` or `{name}.c` modified: contains only `#include "{name}.h"` (plus comment)
 - [ ] `moz.build` updated: Rust crate and shim added (< 5 line diff)
 - [ ] All three changes in a single atomic commit
 
 ## What NOT to Do
 - Do **not** delete the old files. Deletion is deferred to a cleanup PR.
 - Do **not** rename files. Renames are the most conflict-prone git operation.
-- Do **not** change any files other than `{name}.h`, `{name}.cpp`, and `moz.build`.
+- Do **not** change any files other than `{name}.h`, `{name}.cpp`/`{name}.c`, and `moz.build`.
 - Do **not** combine Phase 4 edits with Phase 3 additions in the same commit.

@@ -3,7 +3,7 @@
 #
 # Drives Firefox toward complete Rust conversion by delegating
 # the becrabbening phases to GitHub Copilot CLI, one file-pair
-# at a time.
+# (C/C++ source + header) at a time.
 #
 # Usage:
 #   bash loop.sh [PROMPT_DIR]
@@ -108,6 +108,23 @@ PROMPT_DIR="$(cd "$PROMPT_DIR" && pwd)"
 if [ -d "$FIREFOX_DIR/.git" ] || [ -f "$FIREFOX_DIR/.git" ]; then
     FIREFOX_DIR="$(cd "$FIREFOX_DIR" && pwd)"
     log_and_print "Firefox submodule: $FIREFOX_DIR"
+
+    # Safety check: warn if origin points to an upstream Mozilla repo.
+    # PRs and pushes must only target the owner's own fork.
+    _origin_url=""
+    if [ -d "$FIREFOX_DIR" ]; then
+        _origin_url="$(cd "$FIREFOX_DIR" && git remote get-url origin 2>/dev/null)" || true
+    fi
+    if echo "$_origin_url" | grep -qi 'github\.com/mozilla'; then
+        echo "" >&2
+        echo "WARNING: Firefox submodule origin points to an upstream Mozilla repo:" >&2
+        echo "  $_origin_url" >&2
+        echo "" >&2
+        echo "PRs and pushes must only target your own fork — never upstream." >&2
+        echo "Set FIREFOX_FORK and re-run 'bash firefox-sync.sh init' to fix this." >&2
+        echo "" >&2
+    fi
+    unset _origin_url
 else
     echo "WARNING: Firefox submodule not found at $FIREFOX_DIR." >&2
     echo "Run 'bash firefox-sync.sh init' to set up the Firefox submodule." >&2
@@ -217,24 +234,50 @@ run_validation() {
         checks_run=$((checks_run + 1))
     fi
 
-    # Verify the shim compiles as C++
+    # Verify the shim compiles.
+    # For C source files (no .cpp counterpart), validate as C.
+    # For C++ source files or header-only, validate as C++.
     if [ -f "$work_dir/${name}_shim.h" ]; then
         set +e
-        g++ -xc++ -std=c++17 -fsyntax-only "$work_dir/${name}_shim.h" 2>&1 | tee -a "$TEST_OUTPUT"
+        if [ -f "$work_dir/${name}.c" ] && [ ! -f "$work_dir/${name}.cpp" ]; then
+            gcc -xc -fsyntax-only "$work_dir/${name}_shim.h" 2>&1 | tee -a "$TEST_OUTPUT"
+        else
+            g++ -xc++ -std=c++17 -fsyntax-only "$work_dir/${name}_shim.h" 2>&1 | tee -a "$TEST_OUTPUT"
+        fi
         rc=${PIPESTATUS[0]}
         set -e
         if [ "$rc" -ne 0 ]; then
-            log "C++ shim compilation FAILED for $name"
+            log "Shim compilation FAILED for $name"
             return 1
         fi
-        log "C++ shim compilation PASSED for $name"
+        log "Shim compilation PASSED for $name"
         checks_run=$((checks_run + 1))
     fi
 
-    # Run contract tests if they exist
+    # Run contract tests if they exist (C++ variant)
     if [ -f "$work_dir/test_${name}_contract.cpp" ]; then
         set +e
         (cd "$work_dir" && g++ -std=c++17 "test_${name}_contract.cpp" "${name}.cpp" -o "test_${name}_contract" 2>&1) | tee -a "$TEST_OUTPUT"
+        rc=${PIPESTATUS[0]}
+        set -e
+        if [ "$rc" -ne 0 ]; then
+            log "Contract test compilation FAILED for $name"
+            return 1
+        fi
+        set +e
+        (cd "$work_dir" && "./test_${name}_contract" 2>&1) | tee -a "$TEST_OUTPUT"
+        rc=${PIPESTATUS[0]}
+        set -e
+        if [ "$rc" -ne 0 ]; then
+            log "Contract tests FAILED for $name"
+            return 1
+        fi
+        log "Contract tests PASSED for $name"
+        checks_run=$((checks_run + 1))
+    # Run contract tests if they exist (C variant)
+    elif [ -f "$work_dir/test_${name}_contract.c" ]; then
+        set +e
+        (cd "$work_dir" && gcc -std=c11 "test_${name}_contract.c" "${name}.c" -o "test_${name}_contract" 2>&1) | tee -a "$TEST_OUTPUT"
         rc=${PIPESTATUS[0]}
         set -e
         if [ "$rc" -ne 0 ]; then

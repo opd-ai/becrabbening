@@ -8,10 +8,10 @@ Copy this checklist into every oxidation PR description. Replace `{name}` with t
 
 ### Scope
 
-- [ ] This PR converts exactly one file-pair: `{name}.cpp` + `{name}.h` (or `{name}.h` only)
-- [ ] No other open PR touches `{name}.h` or `{name}.cpp`
+- [ ] This PR converts exactly one file-pair: `{name}.cpp` + `{name}.h`, `{name}.c` + `{name}.h`, or `{name}.h` only
+- [ ] No other open PR touches `{name}.h`, `{name}.cpp`, or `{name}.c`
 - [ ] Trunk is green at the base commit of this branch
-- [ ] Contract tests `test_{name}_contract.cpp` written and passing (Phase 0)
+- [ ] Contract tests `test_{name}_contract.cpp` or `test_{name}_contract.c` written and passing (Phase 0)
 - [ ] API surface snapshot documented
 
 ### Layer 1 — Rust ([02-PHASE-1-RUST.md](./02-PHASE-1-RUST.md))
@@ -21,7 +21,7 @@ Copy this checklist into every oxidation PR description. Replace `{name}` with t
 - [ ] All types crossing the FFI boundary use `#[repr(C)]` or the opaque pointer pattern
 - [ ] Every `extern "C"` function body is wrapped in `std::panic::catch_unwind`
 - [ ] Lifecycle functions `fox_{name}_new` and `fox_{name}_free` are present
-- [ ] Memory safety audit performed; `MEMORIES_{name}.cpp.md` (or `.h.md`) created alongside the original source file
+- [ ] Memory safety audit performed; `MEMORIES_{name}.cpp.md` (or `.c.md` / `.h.md`) created alongside the original source file
 - [ ] `cargo test` passes
 - [ ] `cargo clippy -- -D warnings` passes with no warnings
 
@@ -49,9 +49,9 @@ Copy this checklist into every oxidation PR description. Replace `{name}` with t
 - [ ] Opaque pointer typedef is present: `typedef struct Fox{Name} Fox{Name};`
 - [ ] `_new` and `_free` function pair is declared
 
-### Layer 3 — C++ Shim ([04-PHASE-3-CPP-SHIM.md](./04-PHASE-3-CPP-SHIM.md))
+### Layer 3 — C/C++ Shim ([04-PHASE-3-CPP-SHIM.md](./04-PHASE-3-CPP-SHIM.md))
 
-- [ ] `{name}_shim.h` exists and compiles with `g++ -xc++ -fsyntax-only`
+- [ ] `{name}_shim.h` exists and compiles with `g++ -xc++ -fsyntax-only` (C++) or `gcc -xc -fsyntax-only` (C)
 - [ ] The shim exposes the **exact same** public API as the original `{name}.h`
 - [ ] All original class names, method names, and signatures are preserved
 - [ ] Copy constructor and copy assignment are deleted
@@ -61,7 +61,7 @@ Copy this checklist into every oxidation PR description. Replace `{name}` with t
 ### Switchover ([05-PHASE-4-SWITCHOVER.md](./05-PHASE-4-SWITCHOVER.md))
 
 - [ ] Original `{name}.h` now contains only the include guard + `#include "{name}_shim.h"`
-- [ ] Original `{name}.cpp` now contains only a comment + `#include "{name}.h"`
+- [ ] Original `{name}.cpp` or `{name}.c` now contains only a comment + `#include "{name}.h"`
 - [ ] `moz.build` diff is fewer than 5 lines
 - [ ] All three switchover changes are in a single atomic commit
 
@@ -75,11 +75,13 @@ Copy this checklist into every oxidation PR description. Replace `{name}` with t
 
 ### Merge Safety ([07-PHASE-6-MERGE.md](./07-PHASE-6-MERGE.md))
 
-- [ ] Branch was rebased onto trunk within 1 hour of merge
-- [ ] Merge uses `--ff-only` — no merge commits
+- [ ] Branch was rebased onto trunk and pushed before PR creation
+- [ ] PR created via `gh pr create` with checklist in description
+- [ ] PR immediately merged via `gh pr merge` (no human review — auto-merge)
+- [ ] Branch `oxidize/{name}` preserved (not deleted) for the PR record
 - [ ] After merge: tag `oxidized/{name}` created and pushed
 - [ ] Tracking spreadsheet updated to "Merged" (see [ROADMAP.md](./ROADMAP.md))
-- [ ] Cleanup PR (delete empty `.cpp`) is filed as a follow-up, **not included here**
+- [ ] Cleanup PR (delete empty `.cpp`/`.c`) is filed as a follow-up, **not included here**
 
 ---
 

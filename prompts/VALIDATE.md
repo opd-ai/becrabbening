@@ -18,7 +18,12 @@ Read the becrabbening documentation:
 Run the contract tests from Phase 0. They must pass **without modification**:
 
 ```bash
+# For C++ sources:
 g++ -std=c++17 test_{name}_contract.cpp {name}.cpp -o test_{name}_contract
+./test_{name}_contract
+
+# For C sources:
+gcc -std=c11 test_{name}_contract.c {name}.c -o test_{name}_contract
 ./test_{name}_contract
 ```
 
@@ -53,10 +58,16 @@ gcc -xc -fsyntax-only {name}_ffi.h
 
 Must compile cleanly as pure C.
 
-### Check 5: C++ Shim Compilation
+### Check 5: C/C++ Shim Compilation
 
+For C++ sources:
 ```bash
 g++ -xc++ -std=c++17 -fsyntax-only {name}_shim.h
+```
+
+For C sources:
+```bash
+gcc -xc -fsyntax-only {name}_shim.h
 ```
 
 Must compile cleanly.

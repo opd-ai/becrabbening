@@ -36,6 +36,10 @@ g++ -xc++ -std=c++17 -fsyntax-only {name}_shim.h 2>&1 | tee /tmp/shim-output.txt
 # Contract tests
 g++ -std=c++17 test_{name}_contract.cpp {name}.cpp -o test_{name}_contract 2>&1 | tee /tmp/contract-build.txt
 ./test_{name}_contract 2>&1 | tee /tmp/contract-output.txt
+
+# Or for C sources:
+gcc -std=c11 test_{name}_contract.c {name}.c -o test_{name}_contract 2>&1 | tee /tmp/contract-build.txt
+./test_{name}_contract 2>&1 | tee /tmp/contract-output.txt
 ```
 
 ### Phase 2: Classify Each Failure
@@ -77,11 +81,15 @@ cd ../..
 # C FFI
 gcc -xc -fsyntax-only {name}_ffi.h
 
-# C++ shim
+# C++ shim (or gcc -xc for C sources)
 g++ -xc++ -std=c++17 -fsyntax-only {name}_shim.h
 
-# Contract tests
+# Contract tests (C++)
 g++ -std=c++17 test_{name}_contract.cpp {name}.cpp -o test_{name}_contract
+./test_{name}_contract
+
+# Or contract tests (C)
+gcc -std=c11 test_{name}_contract.c {name}.c -o test_{name}_contract
 ./test_{name}_contract
 ```
 
