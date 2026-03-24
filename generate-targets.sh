@@ -193,8 +193,9 @@ while IFS= read -r header; do
     # (strip ns/moz/etc. prefix conventions aren't changed — use as-is)
     target_name="$basename_h"
 
-    # Skip if already completed
-    if grep -qxF "$target_name" "$EXISTING_DONE" 2>/dev/null; then
+    # Skip if already completed (match first word to handle both old
+    # format "nsFoo" and new format "nsFoo (path/nsFoo.h + path/nsFoo.cpp)")
+    if awk -v t="$target_name" '$1 == t {found=1; exit} END {exit !found}' "$EXISTING_DONE" 2>/dev/null; then
         continue
     fi
 
@@ -405,13 +406,22 @@ target_count=0
         fi
 
         target_name="$(echo "$line" | awk '{print $2}')"
+        header_path="$(echo "$line" | awk '{print $3}')"
+        src_ext="$(echo "$line" | awk '{print $4}')"
 
         # Skip malformed entries with no target name
         if [ -z "$target_name" ]; then
             continue
         fi
 
-        echo "- [ ] $target_name"
+        # Compute file paths relative to the source directory root
+        header_rel="${header_path#$SOURCE_DIR/}"
+        if [ "$src_ext" != "none" ]; then
+            src_rel="${header_rel%.h}.${src_ext}"
+            echo "- [ ] $target_name ($header_rel + $src_rel)"
+        else
+            echo "- [ ] $target_name ($header_rel)"
+        fi
         target_count=$((target_count + 1))
     done < "$RANKED"
 
