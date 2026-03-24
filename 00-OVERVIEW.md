@@ -30,6 +30,13 @@ See [ROADMAP.md](./ROADMAP.md) for target selection strategy, and [09-CHECKLIST-
                  │
                  ▼
 ┌─────────────────────────────────┐
+│  Anti-Slop Audit                │
+│  Detect and fix AI-generated    │
+│  slop patterns in Rust code     │
+└────────────────┬────────────────┘
+                 │
+                 ▼
+┌─────────────────────────────────┐
 │  Phase 2 — C FFI                │
 │  Run cbindgen, generate pure-C  │
 │  header, audit and verify       │
@@ -79,6 +86,7 @@ See [ROADMAP.md](./ROADMAP.md) for target selection strategy, and [09-CHECKLIST-
 |---|---|---|---|---|
 | 0 | Prepare | [01-PHASE-0-PREPARE.md](./01-PHASE-0-PREPARE.md) | Add (tests only) | Zero |
 | 1 | Rust | [02-PHASE-1-RUST.md](./02-PHASE-1-RUST.md) | Add (new files) | Zero |
+| — | Anti-Slop Audit | [02b-ANTI-SLOP-AUDIT.md](./02b-ANTI-SLOP-AUDIT.md) | Edit (Rust only) | Zero |
 | 2 | C FFI | [03-PHASE-2-C-FFI.md](./03-PHASE-2-C-FFI.md) | Add (new files) | Zero |
 | 3 | C++ Shim | [04-PHASE-3-CPP-SHIM.md](./04-PHASE-3-CPP-SHIM.md) | Add (new files) | Zero |
 | 4 | Switchover | [05-PHASE-4-SWITCHOVER.md](./05-PHASE-4-SWITCHOVER.md) | Edit (existing) | Minimal |
@@ -183,6 +191,7 @@ These rules must hold for every conversion:
 
 - [01-PHASE-0-PREPARE.md](./01-PHASE-0-PREPARE.md) — Phase 0 detail
 - [02-PHASE-1-RUST.md](./02-PHASE-1-RUST.md) — Phase 1 detail
+- [02b-ANTI-SLOP-AUDIT.md](./02b-ANTI-SLOP-AUDIT.md) — Anti-slop audit (Rust quality gate)
 - [03-PHASE-2-C-FFI.md](./03-PHASE-2-C-FFI.md) — Phase 2 detail
 - [04-PHASE-3-CPP-SHIM.md](./04-PHASE-3-CPP-SHIM.md) — Phase 3 detail
 - [05-PHASE-4-SWITCHOVER.md](./05-PHASE-4-SWITCHOVER.md) — Phase 4 detail

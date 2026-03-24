@@ -141,6 +141,7 @@ Generated: 2026-03-23
 |-------|----------|-------------|--------------------------|-----------------|
 | 0 — Prepare | ✅ `01-PHASE-0-PREPARE.md` | ✅ `PREPARE.md` | ✅ `delegate "PREPARE.md"` (line 363) | ❌ None (no `run_validation` after Phase 0) |
 | 1 — Rust | ✅ `02-PHASE-1-RUST.md` | ✅ `RUST.md` | ✅ `delegate "RUST.md"` (line 373) | ✅ `run_validation` (line 381) + FAIL.md retry |
+| — Anti-Slop | ✅ `02b-ANTI-SLOP-AUDIT.md` | ✅ `ANTI_SLOP.md` | ✅ `delegate "ANTI_SLOP.md"` | ✅ `run_validation` + FAIL.md retry |
 | 2 — C FFI | ✅ `03-PHASE-2-C-FFI.md` | ✅ `C_FFI.md` | ✅ `delegate "C_FFI.md"` (line 394) | ✅ `run_validation` (line 402) + FAIL.md retry |
 | 3 — C++ Shim | ✅ `04-PHASE-3-CPP-SHIM.md` | ✅ `CPP_SHIM.md` | ✅ `delegate "CPP_SHIM.md"` (line 415) | ✅ `run_validation` (line 423) + FAIL.md retry |
 | 4 — Switchover | ✅ `05-PHASE-4-SWITCHOVER.md` | ✅ `SWITCHOVER.md` | ✅ `delegate "SWITCHOVER.md"` (line 436) | ❌ None (no `run_validation` after Phase 4) |
@@ -150,7 +151,7 @@ Generated: 2026-03-23
 | — Targets | N/A | ✅ `GENERATE_TARGETS.md` | N/A (separate script) | N/A |
 | — Sync | N/A | ✅ `SYNC_FIREFOX.md` | N/A (separate script) | N/A |
 
-**Prompt existence check**: All 10 prompt files exist. All 8 required by `loop.sh` (line 114) are verified at startup.
+**Prompt existence check**: All 11 prompt files exist. All 9 required by `loop.sh` (line 114) are verified at startup.
 
 **Phase 0 and 4 lack validation gates**: This is by design — Phase 0 is read-only preparation and Phase 4 is a mechanical edit. Phase 5 provides the comprehensive validation gate before Phase 6 merge.
 

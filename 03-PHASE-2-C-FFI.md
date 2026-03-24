@@ -2,7 +2,7 @@
 
 **Goal:** Generate a pure-C header that exposes the Rust implementation across the ABI boundary.
 
-Previous: [02-PHASE-1-RUST.md](./02-PHASE-1-RUST.md) — Rust implementation.
+Previous: [02b-ANTI-SLOP-AUDIT.md](./02b-ANTI-SLOP-AUDIT.md) — Anti-slop audit (Rust quality gate).
 Next: [04-PHASE-3-CPP-SHIM.md](./04-PHASE-3-CPP-SHIM.md) — C++ shim layer.
 
 ---
@@ -121,6 +121,7 @@ At the end of Phase 2, you should have:
 ## Cross-References
 
 - [02-PHASE-1-RUST.md](./02-PHASE-1-RUST.md) — previous phase (Rust implementation)
+- [02b-ANTI-SLOP-AUDIT.md](./02b-ANTI-SLOP-AUDIT.md) — anti-slop audit (Rust quality gate)
 - [04-PHASE-3-CPP-SHIM.md](./04-PHASE-3-CPP-SHIM.md) — next phase (C++ shim)
 - [00-OVERVIEW.md](./00-OVERVIEW.md) — architecture overview
 - [examples/nsfoo/cbindgen.toml](./examples/nsfoo/cbindgen.toml) — worked example config

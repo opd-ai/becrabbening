@@ -63,13 +63,14 @@ The loop reads `TARGETS.md` and processes each unchecked target through Phases 0
 |-------|--------|-------------|
 | 0 | `PREPARE.md` | Snapshot API, write contract tests |
 | 1 | `RUST.md` | Implement Rust replacement + FFI exports |
+| — | `ANTI_SLOP.md` | Audit Rust code for AI slop patterns, fix violations |
 | 2 | `C_FFI.md` | Generate C header via cbindgen |
 | 3 | `CPP_SHIM.md` | Build C++ shim with identical API |
 | 4 | `SWITCHOVER.md` | Redirect original files to the shim |
 | 5 | `VALIDATE.md` | Run all tests, verify ABI compatibility |
 | 6 | `MERGE.md` | Create PR, merge, tag |
 
-After each of Phases 1–3 and 5, the script runs automated validation (cargo test, gcc/g++ syntax checks, contract tests). If validation fails, it delegates `FAIL.md` for a fix attempt, then re-validates. If the fix doesn't work, the target is skipped and left unchecked in `TARGETS.md` for retry.
+After each of Phases 1–3 and 5, and the anti-slop audit, the script runs automated validation (cargo test, gcc/g++ syntax checks, contract tests). If validation fails, it delegates `FAIL.md` for a fix attempt, then re-validates. If the fix doesn't work, the target is skipped and left unchecked in `TARGETS.md` for retry.
 
 **Environment overrides:**
 

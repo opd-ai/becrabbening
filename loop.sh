@@ -116,7 +116,7 @@ else
 fi
 
 # Validate prompt directory contains required files
-for required in PREPARE.md RUST.md C_FFI.md CPP_SHIM.md SWITCHOVER.md VALIDATE.md MERGE.md FAIL.md; do
+for required in PREPARE.md RUST.md ANTI_SLOP.md C_FFI.md CPP_SHIM.md SWITCHOVER.md VALIDATE.md MERGE.md FAIL.md; do
     if [ ! -f "$PROMPT_DIR/$required" ]; then
         echo "ERROR: $PROMPT_DIR does not contain $required." >&2
         echo "Set PROMPT_DIR or pass the prompt directory as an argument." >&2
@@ -423,6 +423,29 @@ while [ "$TARGETS_COMPLETED" -lt "$MAX_TARGETS" ]; do
         if ! run_validation "$CURRENT_TARGET"; then
             log_and_print "Validation still failing after FAIL.md for $CURRENT_TARGET Phase 1."
             phase_summary "$CURRENT_TARGET" "1-rust" "FAIL (persisted — skipping target)"
+            skip_target "$CURRENT_TARGET"
+            continue
+        fi
+    fi
+
+    # ── Anti-Slop Audit ──────────────────────────────────────────────────
+    CURRENT_PHASE="1b-anti-slop"
+    log_and_print "--- Anti-Slop Audit ($CURRENT_TARGET) ---"
+    if delegate "ANTI_SLOP.md" "$CURRENT_TARGET"; then
+        phase_summary "$CURRENT_TARGET" "1b-anti-slop" "DONE"
+    else
+        log_and_print "WARNING: Anti-slop audit delegation returned non-zero for $CURRENT_TARGET."
+        phase_summary "$CURRENT_TARGET" "1b-anti-slop" "WARNING"
+    fi
+
+    # Validate Rust crate after anti-slop audit
+    if ! run_validation "$CURRENT_TARGET"; then
+        TEST_FAILURES=$((TEST_FAILURES + 1))
+        log_and_print "Validation failed after anti-slop audit — delegating FAIL.md..."
+        delegate "FAIL.md" "$CURRENT_TARGET" || true
+        if ! run_validation "$CURRENT_TARGET"; then
+            log_and_print "Validation still failing after FAIL.md for $CURRENT_TARGET anti-slop audit."
+            phase_summary "$CURRENT_TARGET" "1b-anti-slop" "FAIL (persisted — skipping target)"
             skip_target "$CURRENT_TARGET"
             continue
         fi
