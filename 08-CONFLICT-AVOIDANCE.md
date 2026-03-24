@@ -73,22 +73,15 @@ PR A is trivially rebased if it conflicts because it contains no logic. PR B has
 
 ## Rule 4: Rebase Window
 
-Rebase as late as possible before review and again as late as possible before merge. The longer a branch sits without rebasing, the higher the chance that trunk diverges and introduces a conflict.
+Rebase as late as possible — immediately before creating and merging the PR. Since PRs are auto-merged (no human review), there is no separate "before review" step. The rebase and merge happen in one continuous operation.
 
-**Before requesting review:**
-
-```bash
-git fetch origin
-git rebase origin/main --autostash
-git push --force-with-lease origin oxidize/{name}
-```
-
-**Before merge (within 1 hour):**
+**Before PR creation and auto-merge:**
 
 ```bash
 git fetch origin
 git rebase origin/main --autostash
 git push --force-with-lease origin oxidize/{name}
+# Then immediately: gh pr create ... && gh pr merge ...
 ```
 
 **If a conflict appears at merge time:**
@@ -96,7 +89,7 @@ git push --force-with-lease origin oxidize/{name}
 1. `git rebase --abort`
 2. Re-read the current `origin/main` version of `{name}.h`
 3. Re-apply Phase 4 (gut the file, replace with a single `#include`) — this is a trivial redo because the new content is always just one line
-4. Push and re-request merge
+4. Push and re-attempt the PR creation + auto-merge
 
 This works because Phase 4 is a **complete replacement** (see Rule 5), not a patch. Redoing it from scratch is fast and correct regardless of what changed on trunk.
 

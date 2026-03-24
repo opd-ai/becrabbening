@@ -68,7 +68,7 @@ See [ROADMAP.md](./ROADMAP.md) for target selection strategy, and [09-CHECKLIST-
                  ▼
 ┌─────────────────────────────────┐
 │  Phase 6 — MERGE                │
-│  Rebase, land PR, tag,          │
+│  Create PR, auto-merge, tag,    │
 │  defer cleanup to next PR       │
 └────────────────┬────────────────┘
                  │
@@ -91,7 +91,7 @@ See [ROADMAP.md](./ROADMAP.md) for target selection strategy, and [09-CHECKLIST-
 | 3 | C/C++ Shim | [04-PHASE-3-CPP-SHIM.md](./04-PHASE-3-CPP-SHIM.md) | Add (new files) | Zero |
 | 4 | Switchover | [05-PHASE-4-SWITCHOVER.md](./05-PHASE-4-SWITCHOVER.md) | Edit (existing) | Minimal |
 | 5 | Validate | [06-PHASE-5-VALIDATE.md](./06-PHASE-5-VALIDATE.md) | None | Zero |
-| 6 | Merge | [07-PHASE-6-MERGE.md](./07-PHASE-6-MERGE.md) | Delete (deferred) | Deferred |
+| 6 | Merge | [07-PHASE-6-MERGE.md](./07-PHASE-6-MERGE.md) | PR + auto-merge | Deferred |
 
 Phases 0–3 are purely **additive** — they create new files and never touch existing ones. This is the core of the conflict-avoidance strategy: new files cannot conflict with anything. See [08-CONFLICT-AVOIDANCE.md](./08-CONFLICT-AVOIDANCE.md) for the full rules.
 

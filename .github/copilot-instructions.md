@@ -13,11 +13,11 @@ Key technologies include Rust (2021 edition, `staticlib` crate type), `cbindgen`
 - **Build System**: Mozilla `mach` (for Firefox integration); `cargo` for Rust crate builds (`cargo test`, `cargo clippy -- -D warnings`)
 - **Testing**: Rust built-in `#[cfg(test)]` unit tests, contract tests written in Phase 0, `mach test` for integration validation, ABI symbol checks via `nm`
 - **Automation**: `loop.sh` (orchestrator), `generate-targets.sh` (dependency graph scanner), `firefox-sync.sh` (git submodule manager)
-- **Version Control**: Git with `--ff-only` merges, `oxidize/{name}` branch naming, `oxidized/{name}` tags after merge
+- **Version Control**: Git with `--ff-only` merges, `oxidize/{name}` branch naming, `oxidized/{name}` tags after merge. PRs are auto-merged immediately after creation (no human review) to preserve a searchable record while keeping the pipeline fully automated.
 
 ## Code Assistance Guidelines
 
-1. **Follow the Seven-Phase Workflow Sequentially**: Every conversion must proceed through Phases 0–6 in order. Never skip phases. Phases 0–3 are purely additive (new files only); Phase 4 is the only phase that edits existing files; Phase 5 validates; Phase 6 merges. Between Phase 1 and Phase 2, run the anti-slop audit ([02b-ANTI-SLOP-AUDIT.md](./02b-ANTI-SLOP-AUDIT.md)) to detect and fix AI-generated slop patterns in the Rust code. Refer to the phase documents (`01-PHASE-0-PREPARE.md` through `07-PHASE-6-MERGE.md`) for detailed instructions.
+1. **Follow the Seven-Phase Workflow Sequentially**: Every conversion must proceed through Phases 0–6 in order. Never skip phases. Phases 0–3 are purely additive (new files only); Phase 4 is the only phase that edits existing files; Phase 5 validates; Phase 6 creates a PR and auto-merges it immediately. Between Phase 1 and Phase 2, run the anti-slop audit ([02b-ANTI-SLOP-AUDIT.md](./02b-ANTI-SLOP-AUDIT.md)) to detect and fix AI-generated slop patterns in the Rust code. Refer to the phase documents (`01-PHASE-0-PREPARE.md` through `07-PHASE-6-MERGE.md`) for detailed instructions.
 
 2. **Use the `fox_{name}_*` FFI Naming Convention**: All exported Rust symbols must use the `fox_{name}_` prefix (e.g., `fox_nsfoo_new`, `fox_nsfoo_bar`, `fox_nsfoo_free`). C types use the `Fox` prefix (e.g., `FoxNsFoo`). This prevents symbol collisions and identifies Rust-backed symbols. See `02-PHASE-1-RUST.md` and `examples/nsfoo/lib.rs`.
 
@@ -46,7 +46,7 @@ Key technologies include Rust (2021 edition, `staticlib` crate type), `cbindgen`
 ## Quality Standards
 
 - **Testing**: Write contract tests in Phase 0 before any conversion begins. Maintain passing `cargo test` and `cargo clippy -- -D warnings` (zero warnings) for every Rust crate. Validate with `mach build` and `mach test` in Phase 5. Verify ABI compatibility with `nm` symbol diff — no missing symbols allowed.
-- **Code Review**: Every oxidation PR must include the completed checklist from `09-CHECKLIST-TEMPLATE.md`. Reviewers verify: identical public API preservation, `catch_unwind` on all `extern "C"` functions, `fox_{name}_*` naming, single-pair scope, and conflict gate compliance.
+- **Code Review**: Oxidation PRs are auto-merged immediately after creation (no human review). Quality is enforced by the automated validation gates in Phases 1–5. Every PR must include the completed checklist from `09-CHECKLIST-TEMPLATE.md` for traceability: identical public API preservation, `catch_unwind` on all `extern "C"` functions, `fox_{name}_*` naming, single-pair scope, and conflict gate compliance.
 - **Documentation**: Each conversion follows the phase documents verbatim. For new Rust crates, prefer adding rustdoc comments on public items and `/// # Safety` sections on `unsafe` FFI functions as a documentation best practice. Update the tracking spreadsheet (see `ROADMAP.md`) when status changes.
 - **Shell Scripts**: All Bash scripts must use POSIX ERE–compatible patterns (`[[:space:]]` not `\s`). `firefox-sync.sh` uses `--ff-only` merges with no fallback, scoped commits via `git commit --only`, and idempotent tag creation via `rev-parse --verify`.
 

@@ -16,7 +16,7 @@ Install these tools before starting:
 | **gcc** | Validate generated C headers |
 | **g++** | Validate C++ shim headers |
 | **copilot** | GitHub Copilot CLI — runs the AI-driven phase prompts |
-| **gh** *(optional)* | GitHub CLI — enables the open-PR conflict gate |
+| **gh** | GitHub CLI — creates and auto-merges PRs in Phase 6; also enables the open-PR conflict gate |
 
 ---
 
@@ -74,7 +74,7 @@ The loop reads `TARGETS.md` and processes each unchecked target through Phases 0
 | 3 | `CPP_SHIM.md` | Build C++ shim with identical API |
 | 4 | `SWITCHOVER.md` | Redirect original files to the shim |
 | 5 | `VALIDATE.md` | Run all tests, verify ABI compatibility |
-| 6 | `MERGE.md` | Create PR, merge, tag |
+| 6 | `MERGE.md` | Create PR, auto-merge, tag |
 
 After each of Phases 1–3 and 5, and the anti-slop audit, the script runs automated validation (cargo test, gcc/g++ syntax checks, contract tests). If validation fails, it delegates `FAIL.md` for a fix attempt, then re-validates. If the fix doesn't work, the target is skipped and left unchecked in `TARGETS.md` for retry.
 

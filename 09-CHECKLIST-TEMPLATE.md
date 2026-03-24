@@ -75,8 +75,10 @@ Copy this checklist into every oxidation PR description. Replace `{name}` with t
 
 ### Merge Safety ([07-PHASE-6-MERGE.md](./07-PHASE-6-MERGE.md))
 
-- [ ] Branch was rebased onto trunk within 1 hour of merge
-- [ ] Merge uses `--ff-only` — no merge commits
+- [ ] Branch was rebased onto trunk and pushed before PR creation
+- [ ] PR created via `gh pr create` with checklist in description
+- [ ] PR immediately merged via `gh pr merge` (no human review — auto-merge)
+- [ ] Branch `oxidize/{name}` preserved (not deleted) for the PR record
 - [ ] After merge: tag `oxidized/{name}` created and pushed
 - [ ] Tracking spreadsheet updated to "Merged" (see [ROADMAP.md](./ROADMAP.md))
 - [ ] Cleanup PR (delete empty `.cpp`/`.c`) is filed as a follow-up, **not included here**

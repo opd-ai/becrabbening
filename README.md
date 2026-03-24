@@ -52,7 +52,7 @@ Each iteration converts exactly **one file-pair** (`.cpp` + `.h`, `.c` + `.h`, o
 | 3 | [04-PHASE-3-CPP-SHIM.md](./04-PHASE-3-CPP-SHIM.md) | C/C++ Shim | Build C/C++ wrapper with identical public API |
 | 4 | [05-PHASE-4-SWITCHOVER.md](./05-PHASE-4-SWITCHOVER.md) | Switchover | Minimal atomic edit to redirect existing files |
 | 5 | [06-PHASE-5-VALIDATE.md](./06-PHASE-5-VALIDATE.md) | Validate | Prove correctness, ABI compatibility, no regressions |
-| 6 | [07-PHASE-6-MERGE.md](./07-PHASE-6-MERGE.md) | Merge | Land the PR safely, tag, defer cleanup |
+| 6 | [07-PHASE-6-MERGE.md](./07-PHASE-6-MERGE.md) | Merge | Create PR, auto-merge, tag, defer cleanup |
 | — | [08-CONFLICT-AVOIDANCE.md](./08-CONFLICT-AVOIDANCE.md) | Rules | Seven rules for eliminating merge conflicts |
 | — | [09-CHECKLIST-TEMPLATE.md](./09-CHECKLIST-TEMPLATE.md) | Template | Copy-paste PR checklist for every oxidation PR |
 
